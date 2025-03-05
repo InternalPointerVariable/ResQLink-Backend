@@ -7,9 +7,15 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/InternalPointerVariable/ResQLink-Backend/internal/api"
+	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
+
+type app struct {
+	user user.Server
+}
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -29,9 +35,15 @@ func main() {
 		panic(err)
 	}
 
+	app := app{
+		user: *user.NewServer(user.NewRepository(pool)),
+	}
+
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /", health)
+	router.Handle("POST /sign-up", api.HTTPHandler(app.user.SignUp))
+	router.Handle("POST /sign-in", api.HTTPHandler(app.user.SignIn))
 
 	host, ok := os.LookupEnv("HOST")
 	if !ok {

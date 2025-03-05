@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     first_name TEXT NOT NULL,
     middle_name TEXT,
+    last_name TEXT NOT NULL,
     birth_date DATE NOT NULL,
     role user_role NOT NULL,
     status_update_frequency INTERVAL NOT NULL, -- Usually in minutes
@@ -39,8 +40,8 @@ CREATE TABLE IF NOT EXISTS disaster_reports (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TYPE user_role;
-DROP TYPE citizen_status;
-DROP TABLE users;
 DROP TABLE disaster_reports;
+DROP TABLE users;
+DROP TYPE citizen_status;
+DROP TYPE user_role;
 -- +goose StatementEnd
