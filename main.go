@@ -11,6 +11,7 @@ import (
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 type app struct {
@@ -35,15 +36,27 @@ func main() {
 		panic(err)
 	}
 
+	redisUrl, ok := os.LookupEnv("REDIS_URL")
+	if !ok {
+		panic("REDIS_URL not found.")
+	}
+
+	opt, err := redis.ParseURL(redisUrl)
+	if err != nil {
+		panic(fmt.Errorf("redis url: %w", err))
+	}
+
+	redisClient := redis.NewClient(opt)
+
 	app := app{
-		user: *user.NewServer(user.NewRepository(pool)),
+		user: *user.NewServer(user.NewRepository(pool, redisClient)),
 	}
 
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /", health)
-	router.Handle("POST /sign-up", api.HTTPHandler(app.user.SignUp))
-	router.Handle("POST /sign-in", api.HTTPHandler(app.user.SignIn))
+	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
+	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
 
 	host, ok := os.LookupEnv("HOST")
 	if !ok {
@@ -56,7 +69,8 @@ func main() {
 	}
 
 	server := http.Server{
-		Addr: host + ":" + port,
+		Addr:    host + ":" + port,
+		Handler: router,
 	}
 
 	slog.Info(fmt.Sprintf("Starting server on port: %s", port))
