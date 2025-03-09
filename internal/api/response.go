@@ -5,14 +5,6 @@ import (
 	"net/http"
 )
 
-type Status string
-
-const (
-	Success Status = "success"
-	Error   Status = "error"
-	Fail    Status = "fail"
-)
-
 type Response struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
