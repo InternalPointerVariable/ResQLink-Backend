@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/api"
+	"github.com/InternalPointerVariable/ResQLink-Backend/internal/disaster"
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -15,7 +16,8 @@ import (
 )
 
 type app struct {
-	user user.Server
+	user     user.Server
+	disaster disaster.Server
 }
 
 func main() {
@@ -49,7 +51,8 @@ func main() {
 	redisClient := redis.NewClient(opt)
 
 	app := app{
-		user: *user.NewServer(user.NewRepository(pool, redisClient)),
+		user:     *user.NewServer(user.NewRepository(pool, redisClient)),
+		disaster: *disaster.NewServer(disaster.NewRepository(pool, redisClient)),
 	}
 
 	router := http.NewServeMux()
@@ -57,6 +60,8 @@ func main() {
 	router.HandleFunc("GET /", health)
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
+	router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
+	router.Handle("POST /api/disaster-reports", api.HTTPHandler(app.disaster.CreateDisasterReport))
 
 	host, ok := os.LookupEnv("HOST")
 	if !ok {
