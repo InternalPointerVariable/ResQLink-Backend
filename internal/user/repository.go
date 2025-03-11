@@ -41,10 +41,9 @@ func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {
 	// TODO: Hash password
 
 	query := `
-    INSERT INTO users
-    VALUES (
+    INSERT INTO users (
         email,
-        password, 
+        password_hash, 
         first_name,
         middle_name,
         last_name,
@@ -53,7 +52,11 @@ func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {
         status_update_frequency,
         is_location_shared
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        make_interval(mins => $8::int),
+        $9
+    )
     `
 
 	if _, err := r.querier.Exec(ctx,
@@ -86,10 +89,10 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
         last_name,
         birth_date,
         role,
-        status_update_frequency,
+        EXTRACT(epoch FROM status_update_frequency)::INT AS status_update_frequency,
         is_location_shared
     FROM users
-    WHERE email = ($1) AND password = ($2)
+    WHERE email = ($1) AND password_hash = ($2)
     `
 
 	rows, err := r.querier.Query(ctx, query, arg.Email, arg.Password)
@@ -142,8 +145,13 @@ func (r *repository) createSession(ctx context.Context, token, userID string) (s
 		ExpiresAt: expiresAt,
 	}
 
+    byt, err := json.Marshal(ses)
+    if err != nil {
+		return session{}, err
+    }
+
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	if err := r.redisClient.Set(ctx, sessionKey, ses, time.Until(expiresAt)).Err(); err != nil {
+	if err := r.redisClient.Set(ctx, sessionKey, string(byt), time.Until(expiresAt)).Err(); err != nil {
 		return session{}, err
 	}
 

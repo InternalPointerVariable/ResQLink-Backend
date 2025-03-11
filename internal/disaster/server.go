@@ -24,19 +24,19 @@ func NewServer(repository Repository) *Server {
 	}
 }
 
-type CivilianStatus = string
+type CitizenStatus = string
 
 const (
-	Safe     CivilianStatus = "safe"
-	AtRisk   CivilianStatus = "at_risk"
-	InDanger CivilianStatus = "in_danger"
+	Safe     CitizenStatus = "safe"
+	AtRisk   CitizenStatus = "at_risk"
+	InDanger CitizenStatus = "in_danger"
 )
 
 type disasterReportResponse struct {
 	DisasterReportID     string         `json:"disasterReportId"`
 	CreatedAt            time.Time      `json:"createdAt"`
 	UpdatedAt            time.Time      `json:"updatedAt"`
-	Status               CivilianStatus `json:"status"`
+	Status               CitizenStatus `json:"status"`
 	RawSituation         string         `json:"rawSituation"`
 	AIGeneratedSituation string         `json:"aiGeneratedSituation"`
 	RespondedAt          *time.Time     `json:"respondedAt"`

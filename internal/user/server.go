@@ -3,11 +3,15 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/api"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Server struct {
@@ -48,6 +52,14 @@ func (s *Server) SignUp(w http.ResponseWriter, r *http.Request) api.Response {
 	}
 
 	if err := s.repository.SignUp(ctx, data); err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return api.Response{
+				Error:   fmt.Errorf("sign up: %w", err),
+				Code:    http.StatusConflict,
+				Message: "User " + data.Email + " already exists.",
+			}
+		}
+
 		return api.Response{
 			Error:   fmt.Errorf("sign up: %w", err),
 			Code:    http.StatusInternalServerError,
@@ -102,6 +114,14 @@ func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
 
 	response, err := s.repository.SignIn(ctx, data)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.Response{
+				Error:   fmt.Errorf("sign in: %w", err),
+				Code:    http.StatusNotFound,
+				Message: "Invalid credentials.",
+			}
+		}
+
 		return api.Response{
 			Error:   fmt.Errorf("sign in: %w", err),
 			Code:    http.StatusInternalServerError,
@@ -109,11 +129,32 @@ func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
 		}
 	}
 
-	// TODO: Return session token for the client
-
 	return api.Response{
 		Code:    http.StatusOK,
 		Message: "Successfully signed in.",
 		Data:    response,
 	}
+}
+
+func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+
+		token, err := r.Cookie("session")
+		if err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		_, err = s.repository.validateSessionToken(ctx, token.Value)
+		if err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

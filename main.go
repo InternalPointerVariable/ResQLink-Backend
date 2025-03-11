@@ -75,7 +75,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    host + ":" + port,
-		Handler: router,
+        Handler: router, // TODO: Wrap authenticated routes with `AuthMiddleware`
 	}
 
 	slog.Info(fmt.Sprintf("Starting server on port: %s", port))
