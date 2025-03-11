@@ -20,13 +20,6 @@ func NewServer(repository Repository) *Server {
 	}
 }
 
-type Role = string
-
-const (
-	Citizen   Role = "citizen"
-	Responder Role = "responder"
-)
-
 type signUpRequest struct {
 	Email                 string    `json:"email"`
 	Password              string    `json:"password"`
@@ -80,12 +73,6 @@ type userResponse struct {
 	Role                  Role      `json:"role"`
 	StatusUpdateFrequency uint      `json:"statusUpdateFrequency"`
 	IsLocationShared      bool      `json:"isLocationShared"`
-}
-
-type session struct {
-	SessionID string    `json:"sessionId"`
-	UserID    string    `json:"userId"`
-	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 type signInRequest struct {
