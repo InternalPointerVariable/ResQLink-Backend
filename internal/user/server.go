@@ -122,6 +122,14 @@ func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
 			}
 		}
 
+		if errors.Is(err, errInvalidPassword) {
+			return api.Response{
+				Error:   fmt.Errorf("sign in: %w", err),
+				Code:    http.StatusUnauthorized,
+				Message: "Invalid password.",
+			}
+		}
+
 		return api.Response{
 			Error:   fmt.Errorf("sign in: %w", err),
 			Code:    http.StatusInternalServerError,

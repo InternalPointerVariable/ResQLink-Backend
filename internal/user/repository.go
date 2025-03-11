@@ -7,6 +7,7 @@ import (
 	"encoding/base32"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,7 +39,10 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 }
 
 func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {
-	// TODO: Hash password
+	passwordHash, err := hashPassword(arg.Password)
+	if err != nil {
+		return err
+	}
 
 	query := `
     INSERT INTO users (
@@ -62,7 +66,7 @@ func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {
 	if _, err := r.querier.Exec(ctx,
 		query,
 		arg.Email,
-		arg.Password,
+		passwordHash,
 		arg.FirstName,
 		arg.MiddleName,
 		arg.LastName,
@@ -77,8 +81,24 @@ func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {
 	return nil
 }
 
+var errInvalidPassword = errors.New("invalid password")
+
 func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInResponse, error) {
-	query := `
+	query := `SELECT password_hash FROM users WHERE email = ($1)`
+
+	var hashedPassword string
+
+	row := r.querier.QueryRow(ctx, query, arg.Email)
+	if err := row.Scan(&hashedPassword); err != nil {
+		return signInResponse{}, err
+	}
+
+	isMatch := checkPasswordHash(arg.Password, hashedPassword)
+	if !isMatch {
+		return signInResponse{}, errInvalidPassword
+	}
+
+	query = `
     SELECT 
         user_id, 
         created_at, 
@@ -92,10 +112,10 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
         EXTRACT(epoch FROM status_update_frequency)::INT AS status_update_frequency,
         is_location_shared
     FROM users
-    WHERE email = ($1) AND password_hash = ($2)
+    WHERE email = ($1)
     `
 
-	rows, err := r.querier.Query(ctx, query, arg.Email, arg.Password)
+	rows, err := r.querier.Query(ctx, query, arg.Email)
 	if err != nil {
 		return signInResponse{}, err
 	}
@@ -145,10 +165,10 @@ func (r *repository) createSession(ctx context.Context, token, userID string) (s
 		ExpiresAt: expiresAt,
 	}
 
-    byt, err := json.Marshal(ses)
-    if err != nil {
+	byt, err := json.Marshal(ses)
+	if err != nil {
 		return session{}, err
-    }
+	}
 
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
 	if err := r.redisClient.Set(ctx, sessionKey, string(byt), time.Until(expiresAt)).Err(); err != nil {
