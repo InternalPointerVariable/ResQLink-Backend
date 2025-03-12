@@ -16,11 +16,13 @@ import (
 
 type Server struct {
 	repository Repository
+    baseURL    string // TODO: Should be in the repository instead (probably)
 }
 
-func NewServer(repository Repository) *Server {
+func NewServer(repository Repository, baseURL string) *Server {
 	return &Server{
 		repository: repository,
+		baseURL:    baseURL,
 	}
 }
 
@@ -33,16 +35,17 @@ const (
 )
 
 type disasterReportResponse struct {
-	DisasterReportID     string         `json:"disasterReportId"`
-	CreatedAt            time.Time      `json:"createdAt"`
-	UpdatedAt            time.Time      `json:"updatedAt"`
+	DisasterReportID     string        `json:"disasterReportId"`
+	CreatedAt            time.Time     `json:"createdAt"`
+	UpdatedAt            time.Time     `json:"updatedAt"`
 	Status               CitizenStatus `json:"status"`
-	RawSituation         string         `json:"rawSituation"`
-	AIGeneratedSituation string         `json:"aiGeneratedSituation"`
-	RespondedAt          *time.Time     `json:"respondedAt"`
-	UserID               string         `json:"userId"`
-	PhotoURLs            []string       `json:"photoUrls"`
+	RawSituation         string        `json:"rawSituation"`
+	AIGeneratedSituation *string       `json:"aiGeneratedSituation"`
+	RespondedAt          *time.Time    `json:"respondedAt"`
+	UserID               string        `json:"userId"`
+	PhotoURLs            []string      `json:"photoUrls"`
 
+    // TODO: Decide if this should be in Postgres or Redis
 	// Location
 	Longitude int     `json:"longitude"`
 	Latitude  int     `json:"latitude"`
@@ -71,9 +74,16 @@ func (s *Server) GetDisasterReports(w http.ResponseWriter, r *http.Request) api.
 
 var ErrInvalidFileType = errors.New("invalid file type")
 
+type createDisasterReportRequest struct {
+	UserID       string        `json:"userId"`
+	Status       CitizenStatus `json:"status"`
+	RawSituation string        `json:"rawSituation"`
+	PhotoURLs    []string      `json:"photoUrls"`
+}
+
 func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) api.Response {
-	// ctx, cancel := context.WithCancel(r.Context())
-	// defer cancel()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
 	const maxBodySize = 10 << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
@@ -86,12 +96,12 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 		}
 	}
 
-    // TODO: Save to database 
-	// var (
-	// 	userID       = r.FormValue("userId")
-	// 	status       = r.FormValue("status")
-	// 	rawSituation = r.FormValue("rawSituation")
-	// )
+	disasterReport := createDisasterReportRequest{
+		UserID:       r.FormValue("userId"),
+		Status:       r.FormValue("status"),
+		RawSituation: r.FormValue("rawSituation"),
+		PhotoURLs:    []string{},
+	}
 
 	if r.MultipartForm != nil && r.MultipartForm.File != nil {
 		photos := r.MultipartForm.File["photos"]
@@ -135,7 +145,7 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 				}
 
 				ext := "jpg"
-                // TODO: Add more details to the file name
+				// TODO: Add more details to the file name
 				fileName := fmt.Sprintf("report_%s.%s", time.Now().Format("20060102150405"), ext)
 
 				uploadDir := "_temp/photos"
@@ -148,6 +158,7 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 				}
 
 				filePath := filepath.Join(uploadDir, fileName)
+				fileURL := fmt.Sprintf("%s/%s", s.baseURL, filePath)
 
 				dest, err := os.Create(filePath)
 				if err != nil {
@@ -166,7 +177,17 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 						Message: "Failed to save file.",
 					}
 				}
+
+				disasterReport.PhotoURLs = append(disasterReport.PhotoURLs, fileURL)
 			}
+		}
+	}
+
+	if err := s.repository.CreateDisasterReport(ctx, disasterReport); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("create disaster report: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to create disaster report.",
 		}
 	}
 

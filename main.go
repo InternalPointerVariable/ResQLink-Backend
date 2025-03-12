@@ -25,25 +25,30 @@ func main() {
 		panic("Failed to load .env file.")
 	}
 
-	dbUrl, ok := os.LookupEnv("DATABASE_URL")
+	baseURL, ok := os.LookupEnv("BASE_URL")
+	if !ok {
+		panic("BASE_URL not found.")
+	}
+
+	dbURL, ok := os.LookupEnv("DATABASE_URL")
 	if !ok {
 		panic("DATABASE_URL not found.")
 	}
 
 	ctx := context.Background()
 
-	pool, err := pgxpool.New(ctx, dbUrl)
+	pool, err := pgxpool.New(ctx, dbURL)
 	defer pool.Close()
 	if err != nil {
 		panic(err)
 	}
 
-	redisUrl, ok := os.LookupEnv("REDIS_URL")
+	redisURL, ok := os.LookupEnv("REDIS_URL")
 	if !ok {
 		panic("REDIS_URL not found.")
 	}
 
-	opt, err := redis.ParseURL(redisUrl)
+	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		panic(fmt.Errorf("redis url: %w", err))
 	}
@@ -52,7 +57,7 @@ func main() {
 
 	app := app{
 		user:     *user.NewServer(user.NewRepository(pool, redisClient)),
-		disaster: *disaster.NewServer(disaster.NewRepository(pool, redisClient)),
+		disaster: *disaster.NewServer(disaster.NewRepository(pool, redisClient), baseURL),
 	}
 
 	router := http.NewServeMux()

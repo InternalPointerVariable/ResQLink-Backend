@@ -10,7 +10,7 @@ import (
 
 type Repository interface {
 	GetDisasterReports(ctx context.Context) ([]disasterReportResponse, error)
-	CreateDisasterReport(ctx context.Context) error
+	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
 }
 
 type repository struct {
@@ -26,7 +26,20 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 }
 
 func (r *repository) GetDisasterReports(ctx context.Context) ([]disasterReportResponse, error) {
-	query := `SELECT * FROM disaster_reports`
+    // TODO: Remove hard coded values for location details
+	query := `
+        SELECT 
+            disaster_reports.*,
+            array_agg(disaster_photos.photo_url) 
+                FILTER (WHERE disaster_photos.photo_url IS NOT NULL) AS photo_urls,
+            20 AS longitude,
+            20 AS latitude,
+            'my house' AS address
+        FROM disaster_reports 
+        LEFT JOIN disaster_photos 
+            ON disaster_photos.disaster_report_id = disaster_reports.disaster_report_id
+        GROUP BY disaster_reports.disaster_report_id
+    `
 	rows, err := r.querier.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -40,6 +53,44 @@ func (r *repository) GetDisasterReports(ctx context.Context) ([]disasterReportRe
 	return reports, nil
 }
 
-func (r *repository) CreateDisasterReport(ctx context.Context) error {
+func (r *repository) CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error {
+	tx, err := r.querier.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+        INSERT INTO disaster_reports (
+            user_id,
+            status,
+            raw_situation
+        )
+        VALUES ($1, $2, $3)
+        RETURNING disaster_report_id
+    `
+
+	var disasterReportID string
+
+	row := tx.QueryRow(ctx, query, arg.UserID, arg.Status, arg.RawSituation)
+	if err := row.Scan(&disasterReportID); err != nil {
+		return err
+	}
+
+	query = `
+    INSERT INTO disaster_photos (photo_url, disaster_report_id)
+    VALUES ($1, $2)
+    `
+
+	for _, photoURL := range arg.PhotoURLs {
+		if _, err := tx.Exec(ctx, query, photoURL, disasterReportID); err != nil {
+			return err
+		}
+	}
+
+if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
