@@ -9,7 +9,7 @@ import (
 )
 
 type Repository interface {
-	GetDisasterReports(ctx context.Context) ([]disasterReportResponse, error)
+	GetDisasterReportsByUser(ctx context.Context, userID string) ([]disasterReportResponse, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
 }
 
@@ -25,22 +25,23 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 	}
 }
 
-func (r *repository) GetDisasterReports(ctx context.Context) ([]disasterReportResponse, error) {
-    // TODO: Remove hard coded values for location details
+// TODO: Ordering and filtering
+func (r *repository) GetDisasterReportsByUser(
+	ctx context.Context,
+	userID string,
+) ([]disasterReportResponse, error) {
 	query := `
         SELECT 
             disaster_reports.*,
             array_agg(disaster_photos.photo_url) 
-                FILTER (WHERE disaster_photos.photo_url IS NOT NULL) AS photo_urls,
-            20 AS longitude,
-            20 AS latitude,
-            'my house' AS address
+                FILTER (WHERE disaster_photos.photo_url IS NOT NULL) AS photo_urls
         FROM disaster_reports 
         LEFT JOIN disaster_photos 
             ON disaster_photos.disaster_report_id = disaster_reports.disaster_report_id
+        WHERE disaster_reports.user_id = ($1)
         GROUP BY disaster_reports.disaster_report_id
     `
-	rows, err := r.querier.Query(ctx, query)
+	rows, err := r.querier.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func (r *repository) CreateDisasterReport(ctx context.Context, arg createDisaste
 		}
 	}
 
-if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 

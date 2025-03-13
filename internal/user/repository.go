@@ -2,14 +2,9 @@ package user
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base32"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,6 +14,8 @@ import (
 type Repository interface {
 	SignUp(ctx context.Context, arg signUpRequest) error
 	SignIn(ctx context.Context, arg signInRequest) (signInResponse, error)
+	SaveLocation(ctx context.Context, arg saveLocationRequest) error
+	GetLocation(ctx context.Context, userID string) (location, error)
 
 	generateSessionToken() (string, error)
 	createSession(ctx context.Context, token, userID string) (session, error)
@@ -141,105 +138,52 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
 	}, nil
 }
 
-func (r *repository) generateSessionToken() (string, error) {
-	bytes := make([]byte, 20)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-
-	encoder := base32.StdEncoding.WithPadding(base32.NoPadding)
-	token := encoder.EncodeToString(bytes)
-
-	return token, nil
+type saveLocationRequest struct {
+	UserID    string  `json:"userId"`
+	Longitude int     `json:"longitude"`
+	Latitude  int     `json:"latitude"`
+	Address   *string `json:"address"`
 }
 
-func (r *repository) createSession(ctx context.Context, token, userID string) (session, error) {
-	hash := sha256.Sum256([]byte(token))
-	sessionID := hex.EncodeToString(hash[:])
-
-	expiresAt := time.Now().Add(7 * 24 * time.Hour)
-
-	ses := session{
-		SessionID: sessionID,
-		UserID:    userID,
-		ExpiresAt: expiresAt,
-	}
-
-	byt, err := json.Marshal(ses)
-	if err != nil {
-		return session{}, err
-	}
-
-	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	if err := r.redisClient.Set(ctx, sessionKey, string(byt), time.Until(expiresAt)).Err(); err != nil {
-		return session{}, err
-	}
-
-	userSessionsKey := fmt.Sprintf("user_sessions:%s", userID)
-	if err := r.redisClient.SAdd(ctx, userSessionsKey, sessionID).Err(); err != nil {
-		return session{}, err
-	}
-
-	return ses, nil
+type location struct {
+	Longitude int     `json:"longitude"`
+	Latitude  int     `json:"latitude"`
+	Address   *string `json:"address"`
 }
 
-func (r *repository) validateSessionToken(ctx context.Context, token string) (session, error) {
-	hash := sha256.Sum256([]byte(token))
-	sessionID := hex.EncodeToString(hash[:])
-
-	sessionKey := fmt.Sprintf("session:%s", sessionID)
-
-	data, err := r.redisClient.Get(ctx, sessionKey).Result()
-	if err != nil {
-		return session{}, err
+func (r *repository) SaveLocation(ctx context.Context, arg saveLocationRequest) error {
+	loc := location{
+		Longitude: arg.Longitude,
+		Latitude:  arg.Latitude,
+		Address:   arg.Address,
 	}
 
-	var ses session
-
-	if err := json.Unmarshal([]byte(data), &ses); err != nil {
-		return session{}, err
-	}
-
-	now := time.Now()
-	if now.After(ses.ExpiresAt) || now.Equal(ses.ExpiresAt) {
-		if err := r.redisClient.Del(ctx, sessionKey).Err(); err != nil {
-			return session{}, err
-		}
-
-		userSessionsKey := fmt.Sprintf("user_sessions:%s", ses.UserID)
-		if err := r.redisClient.SRem(ctx, userSessionsKey, sessionID).Err(); err != nil {
-			return session{}, err
-		}
-	}
-
-	// If session is close to expiration (3 days), extend it
-	beforeExpiry := ses.ExpiresAt.Add(-3 * 24 * time.Hour)
-	if now.After(beforeExpiry) || now.Equal(beforeExpiry) {
-		ses.ExpiresAt = now.Add(7 * 24 * time.Hour)
-
-		if err := r.redisClient.Set(
-			ctx,
-			sessionKey,
-			ses,
-			time.Until(ses.ExpiresAt),
-		).Err(); err != nil {
-			return session{}, err
-		}
-	}
-
-	return ses, nil
-}
-
-func (r *repository) invalidateSession(ctx context.Context, sessionID, userID string) error {
-	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	if err := r.redisClient.Del(ctx, sessionKey).Err(); err != nil {
-		return err
-	}
-
-	userSessionsKey := fmt.Sprintf("user_sessions:%s", userID)
-	if err := r.redisClient.SRem(ctx, userSessionsKey, sessionID).Err(); err != nil {
+	key := fmt.Sprintf("user:%s:location", arg.UserID)
+	if err := r.redisClient.JSONSet(ctx, key, "$", loc).Err(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+var errLocationNotFound = errors.New("location not found")
+
+func (r *repository) GetLocation(ctx context.Context, userID string) (location, error) {
+	key := fmt.Sprintf("user:%s:location", userID)
+	result, err := r.redisClient.JSONGet(ctx, key).Result()
+	if err != nil {
+		return location{}, err
+	}
+
+	if result == "" {
+		return location{}, errLocationNotFound
+	}
+
+	var loc location
+
+	if err := json.Unmarshal([]byte(result), &loc); err != nil {
+		return location{}, err
+	}
+
+	return loc, nil
 }

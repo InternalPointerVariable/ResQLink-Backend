@@ -65,7 +65,11 @@ func main() {
 	router.HandleFunc("GET /", health)
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
-	router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
+
+	router.Handle("GET /api/users/{userID}/location", api.HTTPHandler(app.user.GetLocation))
+	router.Handle("POST /api/users/{userID}/location", api.HTTPHandler(app.user.SaveLocation))
+	router.Handle("GET /api/users/{userID}/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReportsByUser))
+	// router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
 	router.Handle("POST /api/disaster-reports", api.HTTPHandler(app.disaster.CreateDisasterReport))
 
 	host, ok := os.LookupEnv("HOST")
