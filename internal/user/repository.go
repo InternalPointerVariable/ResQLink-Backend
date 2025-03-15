@@ -12,6 +12,7 @@ import (
 )
 
 type Repository interface {
+	Get(ctx context.Context, userID string) (userResponse, error)
 	SignUp(ctx context.Context, arg signUpRequest) error
 	SignIn(ctx context.Context, arg signInRequest) (signInResponse, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
@@ -19,7 +20,7 @@ type Repository interface {
 
 	generateSessionToken() (string, error)
 	createSession(ctx context.Context, token, userID string) (session, error)
-	validateSessionToken(ctx context.Context, token string) (session, error)
+	validateSessionToken(ctx context.Context, token string) (signInResponse, error)
 	invalidateSession(ctx context.Context, sessionID, userID string) error
 }
 
@@ -33,6 +34,37 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 		querier:     querier,
 		redisClient: redisClient,
 	}
+}
+
+func (r *repository) Get(ctx context.Context, userID string) (userResponse, error) {
+	query := `
+    SELECT 
+        user_id, 
+        created_at, 
+        updated_at, 
+        email, 
+        first_name, 
+        middle_name, 
+        last_name,
+        birth_date,
+        role,
+        EXTRACT(epoch FROM status_update_frequency)::INT AS status_update_frequency,
+        is_location_shared
+    FROM users
+    WHERE user_id = ($1)
+    `
+
+	rows, err := r.querier.Query(ctx, query, userID)
+	if err != nil {
+		return userResponse{}, err
+	}
+
+	user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[userResponse])
+	if err != nil {
+		return userResponse{}, err
+	}
+
+	return user, nil
 }
 
 func (r *repository) SignUp(ctx context.Context, arg signUpRequest) error {

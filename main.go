@@ -65,12 +65,19 @@ func main() {
 	router.HandleFunc("GET /", health)
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
+	router.Handle("GET /api/session", api.HTTPHandler(app.user.GetSession))
 
 	router.Handle("GET /api/users/{userID}/location", api.HTTPHandler(app.user.GetLocation))
 	router.Handle("POST /api/users/{userID}/location", api.HTTPHandler(app.user.SaveLocation))
-	router.Handle("GET /api/users/{userID}/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReportsByUser))
+	router.Handle(
+		"GET /api/users/{userID}/disaster-reports",
+		api.HTTPHandler(app.disaster.GetDisasterReportsByUser),
+	)
 	// router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
-	router.Handle("POST /api/disaster-reports", api.HTTPHandler(app.disaster.CreateDisasterReport))
+	router.Handle(
+		"POST /api/disaster-reports",
+		api.HTTPHandler(app.disaster.CreateDisasterReport),
+	)
 
 	host, ok := os.LookupEnv("HOST")
 	if !ok {
@@ -84,7 +91,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    host + ":" + port,
-        Handler: router, // TODO: Wrap authenticated routes with `AuthMiddleware`
+		Handler: router, // TODO: Wrap authenticated routes with `AuthMiddleware`
 	}
 
 	slog.Info(fmt.Sprintf("Starting server on port: %s", port))

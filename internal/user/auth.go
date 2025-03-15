@@ -55,7 +55,10 @@ func (r *repository) createSession(ctx context.Context, token, userID string) (s
 	return ses, nil
 }
 
-func (r *repository) validateSessionToken(ctx context.Context, token string) (session, error) {
+func (r *repository) validateSessionToken(
+	ctx context.Context,
+	token string,
+) (signInResponse, error) {
 	hash := sha256.Sum256([]byte(token))
 	sessionID := hex.EncodeToString(hash[:])
 
@@ -63,24 +66,24 @@ func (r *repository) validateSessionToken(ctx context.Context, token string) (se
 
 	data, err := r.redisClient.Get(ctx, sessionKey).Result()
 	if err != nil {
-		return session{}, err
+		return signInResponse{}, err
 	}
 
 	var ses session
 
 	if err := json.Unmarshal([]byte(data), &ses); err != nil {
-		return session{}, err
+		return signInResponse{}, err
 	}
 
 	now := time.Now()
 	if now.After(ses.ExpiresAt) || now.Equal(ses.ExpiresAt) {
 		if err := r.redisClient.Del(ctx, sessionKey).Err(); err != nil {
-			return session{}, err
+			return signInResponse{}, err
 		}
 
 		userSessionsKey := fmt.Sprintf("user_sessions:%s", ses.UserID)
 		if err := r.redisClient.SRem(ctx, userSessionsKey, sessionID).Err(); err != nil {
-			return session{}, err
+			return signInResponse{}, err
 		}
 	}
 
@@ -95,11 +98,21 @@ func (r *repository) validateSessionToken(ctx context.Context, token string) (se
 			ses,
 			time.Until(ses.ExpiresAt),
 		).Err(); err != nil {
-			return session{}, err
+			return signInResponse{}, err
 		}
 	}
 
-	return ses, nil
+	user, err := r.Get(ctx, ses.UserID)
+	if err != nil {
+		return signInResponse{}, err
+	}
+
+	res := signInResponse{
+		Session: ses,
+		User:    user,
+	}
+
+	return res, nil
 }
 
 func (r *repository) invalidateSession(ctx context.Context, sessionID, userID string) error {

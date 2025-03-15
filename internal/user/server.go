@@ -203,6 +203,28 @@ func (s *Server) GetLocation(w http.ResponseWriter, r *http.Request) api.Respons
 	}
 }
 
+func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	token := r.URL.Query().Get("token")
+
+	result, err := s.repository.validateSessionToken(ctx, token)
+	if err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("get session: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to get user session.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusOK,
+		Message: "Successfully fetched user session.",
+		Data:    result,
+	}
+}
+
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithCancel(r.Context())
