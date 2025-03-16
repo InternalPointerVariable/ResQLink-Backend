@@ -93,8 +93,8 @@ type signInRequest struct {
 }
 
 type signInResponse struct {
-	User    userResponse `json:"user"`
-	Session session      `json:"session"`
+	User  userResponse `json:"user"`
+	Token string       `json:"token"`
 }
 
 func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
@@ -141,6 +141,40 @@ func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
 		Code:    http.StatusOK,
 		Message: "Successfully signed in.",
 		Data:    response,
+	}
+}
+
+type signOutRequest struct {
+	UserID string `json:"userId"`
+	Token  string `json:"token"`
+}
+
+func (s *Server) SignOut(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	var data signOutRequest
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("sign out: %w", err),
+			Code:    http.StatusBadRequest,
+			Message: "Invalid sign out request.",
+		}
+	}
+
+	if err := s.repository.invalidateSession(ctx, data.Token, data.UserID); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("sign out: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to sign out.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusOK,
+		Message: "Successfully signed out.",
 	}
 }
 

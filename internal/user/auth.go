@@ -55,10 +55,15 @@ func (r *repository) createSession(ctx context.Context, token, userID string) (s
 	return ses, nil
 }
 
+type sessionValidationResponse struct {
+	User    userResponse `json:"user"`
+	Session session      `json:"session"`
+}
+
 func (r *repository) validateSessionToken(
 	ctx context.Context,
 	token string,
-) (signInResponse, error) {
+) (sessionValidationResponse, error) {
 	hash := sha256.Sum256([]byte(token))
 	sessionID := hex.EncodeToString(hash[:])
 
@@ -66,24 +71,24 @@ func (r *repository) validateSessionToken(
 
 	data, err := r.redisClient.Get(ctx, sessionKey).Result()
 	if err != nil {
-		return signInResponse{}, err
+		return sessionValidationResponse{}, err
 	}
 
 	var ses session
 
 	if err := json.Unmarshal([]byte(data), &ses); err != nil {
-		return signInResponse{}, err
+		return sessionValidationResponse{}, err
 	}
 
 	now := time.Now()
 	if now.After(ses.ExpiresAt) || now.Equal(ses.ExpiresAt) {
 		if err := r.redisClient.Del(ctx, sessionKey).Err(); err != nil {
-			return signInResponse{}, err
+			return sessionValidationResponse{}, err
 		}
 
 		userSessionsKey := fmt.Sprintf("user_sessions:%s", ses.UserID)
 		if err := r.redisClient.SRem(ctx, userSessionsKey, sessionID).Err(); err != nil {
-			return signInResponse{}, err
+			return sessionValidationResponse{}, err
 		}
 	}
 
@@ -98,16 +103,16 @@ func (r *repository) validateSessionToken(
 			ses,
 			time.Until(ses.ExpiresAt),
 		).Err(); err != nil {
-			return signInResponse{}, err
+			return sessionValidationResponse{}, err
 		}
 	}
 
 	user, err := r.Get(ctx, ses.UserID)
 	if err != nil {
-		return signInResponse{}, err
+		return sessionValidationResponse{}, err
 	}
 
-	res := signInResponse{
+	res := sessionValidationResponse{
 		Session: ses,
 		User:    user,
 	}
@@ -115,7 +120,10 @@ func (r *repository) validateSessionToken(
 	return res, nil
 }
 
-func (r *repository) invalidateSession(ctx context.Context, sessionID, userID string) error {
+func (r *repository) invalidateSession(ctx context.Context, token, userID string) error {
+	hash := sha256.Sum256([]byte(token))
+	sessionID := hex.EncodeToString(hash[:])
+
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
 	if err := r.redisClient.Del(ctx, sessionKey).Err(); err != nil {
 		return err

@@ -65,6 +65,7 @@ func main() {
 	router.HandleFunc("GET /", health)
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
+	router.Handle("POST /api/sign-out", api.HTTPHandler(app.user.SignOut))
 	router.Handle("GET /api/session", api.HTTPHandler(app.user.GetSession))
 
 	router.Handle("GET /api/users/{userID}/location", api.HTTPHandler(app.user.GetLocation))

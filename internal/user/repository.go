@@ -20,7 +20,7 @@ type Repository interface {
 
 	generateSessionToken() (string, error)
 	createSession(ctx context.Context, token, userID string) (session, error)
-	validateSessionToken(ctx context.Context, token string) (signInResponse, error)
+	validateSessionToken(ctx context.Context, token string) (sessionValidationResponse, error)
 	invalidateSession(ctx context.Context, sessionID, userID string) error
 }
 
@@ -159,14 +159,14 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
 		return signInResponse{}, err
 	}
 
-	ses, err := r.createSession(ctx, token, user.UserID)
+	_, err = r.createSession(ctx, token, user.UserID)
 	if err != nil {
 		return signInResponse{}, err
 	}
 
 	return signInResponse{
-		Session: ses,
-		User:    user,
+		User:  user,
+		Token: token,
 	}, nil
 }
 
