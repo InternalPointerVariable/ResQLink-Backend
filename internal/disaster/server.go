@@ -1,7 +1,6 @@
 package disaster
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -42,8 +41,7 @@ type disasterReportResponse struct {
 }
 
 func (s *Server) GetDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	userID := r.PathValue("userID")
 
@@ -71,8 +69,7 @@ type createDisasterReportRequest struct {
 }
 
 func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	const maxBodySize = 10 << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)

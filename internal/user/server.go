@@ -1,7 +1,6 @@
 package user
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,8 +36,7 @@ type signUpRequest struct {
 }
 
 func (s *Server) SignUp(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	var data signUpRequest
 
@@ -98,8 +96,7 @@ type signInResponse struct {
 }
 
 func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	var data signInRequest
 
@@ -150,8 +147,7 @@ type signOutRequest struct {
 }
 
 func (s *Server) SignOut(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	var data signOutRequest
 
@@ -179,8 +175,7 @@ func (s *Server) SignOut(w http.ResponseWriter, r *http.Request) api.Response {
 }
 
 func (s *Server) SaveLocation(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	var data saveLocationRequest
 
@@ -208,8 +203,7 @@ func (s *Server) SaveLocation(w http.ResponseWriter, r *http.Request) api.Respon
 }
 
 func (s *Server) GetLocation(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	userID := r.PathValue("userID")
 
@@ -238,8 +232,7 @@ func (s *Server) GetLocation(w http.ResponseWriter, r *http.Request) api.Respons
 }
 
 func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	ctx := r.Context()
 
 	token := r.URL.Query().Get("token")
 
@@ -261,8 +254,7 @@ func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) api.Response
 
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithCancel(r.Context())
-		defer cancel()
+		ctx := r.Context()
 
 		token, err := r.Cookie("session")
 		if err != nil {
