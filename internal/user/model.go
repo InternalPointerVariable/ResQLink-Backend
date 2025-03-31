@@ -2,11 +2,11 @@ package user
 
 import "time"
 
-type Role = string
+type role = string
 
 const (
-	Citizen   Role = "citizen"
-	Responder Role = "responder"
+	citizen   role = "citizen"
+	responder role = "responder"
 )
 
 type session struct {

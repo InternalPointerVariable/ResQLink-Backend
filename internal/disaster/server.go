@@ -20,19 +20,19 @@ func NewServer(repository Repository, baseURL string) *Server {
 	}
 }
 
-type CitizenStatus = string
+type citizenStatus = string
 
 const (
-	Safe     CitizenStatus = "safe"
-	AtRisk   CitizenStatus = "at_risk"
-	InDanger CitizenStatus = "in_danger"
+	safe     citizenStatus = "safe"
+	atRisk   citizenStatus = "at_risk"
+	inDanger citizenStatus = "in_danger"
 )
 
 type disasterReportResponse struct {
 	DisasterReportID     string        `json:"disasterReportId"`
 	CreatedAt            time.Time     `json:"createdAt"`
 	UpdatedAt            time.Time     `json:"updatedAt"`
-	Status               CitizenStatus `json:"status"`
+	Status               citizenStatus `json:"status"`
 	RawSituation         string        `json:"rawSituation"`
 	AIGeneratedSituation *string       `json:"aiGeneratedSituation"`
 	RespondedAt          *time.Time    `json:"respondedAt"`
@@ -63,7 +63,7 @@ func (s *Server) GetDisasterReportsByUser(w http.ResponseWriter, r *http.Request
 
 type createDisasterReportRequest struct {
 	UserID       string        `json:"userId"`
-	Status       CitizenStatus `json:"status"`
+	Status       citizenStatus `json:"status"`
 	RawSituation string        `json:"rawSituation"`
 	PhotoURLs    []string      `json:"photoUrls"`
 }

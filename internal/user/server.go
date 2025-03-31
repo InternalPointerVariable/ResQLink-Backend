@@ -30,7 +30,7 @@ type signUpRequest struct {
 	MiddleName            *string   `json:"middleName"`
 	LastName              string    `json:"lastName"`
 	BirthDate             time.Time `json:"birthDate"`
-	Role                  Role      `json:"role"`
+	Role                  role      `json:"role"`
 	StatusUpdateFrequency uint      `json:"statusUpdateFrequency"`
 	IsLocationShared      bool      `json:"isLocationShared"`
 }
@@ -80,7 +80,7 @@ type userResponse struct {
 	MiddleName            *string   `json:"middleName"`
 	LastName              string    `json:"lastName"`
 	BirthDate             time.Time `json:"birthDate"`
-	Role                  Role      `json:"role"`
+	Role                  role      `json:"role"`
 	StatusUpdateFrequency uint      `json:"statusUpdateFrequency"`
 	IsLocationShared      bool      `json:"isLocationShared"`
 }

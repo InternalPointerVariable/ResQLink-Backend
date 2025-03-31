@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var ErrInvalidFileType = errors.New("invalid file type")
+var errInvalidFileType = errors.New("invalid file type")
 
 func uploadPhoto(fileHeader *multipart.FileHeader, baseURL string) (string, error) {
 	file, err := fileHeader.Open()
