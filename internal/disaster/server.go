@@ -43,7 +43,7 @@ type disasterReportResponse struct {
 func (s *Server) GetDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
-	userID := r.PathValue("userID")
+	userID := r.PathValue("userId")
 
 	reports, err := s.repository.GetDisasterReportsByUser(ctx, userID)
 	if err != nil {

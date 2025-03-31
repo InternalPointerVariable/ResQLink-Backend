@@ -205,7 +205,7 @@ func (s *Server) SaveLocation(w http.ResponseWriter, r *http.Request) api.Respon
 func (s *Server) GetLocation(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
-	userID := r.PathValue("userID")
+	userID := r.PathValue("userId")
 
 	loc, err := s.repository.GetLocation(ctx, userID)
 	if err != nil {
