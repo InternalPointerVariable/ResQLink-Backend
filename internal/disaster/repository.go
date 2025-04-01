@@ -9,7 +9,7 @@ import (
 )
 
 type Repository interface {
-	GetDisasterReportsByUser(ctx context.Context, userID string) ([]disasterReportResponse, error)
+	ListDisasterReportsByUser(ctx context.Context, userID string) ([]disasterReportResponse, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
 }
 
@@ -26,7 +26,7 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 }
 
 // TODO: Ordering and filtering
-func (r *repository) GetDisasterReportsByUser(
+func (r *repository) ListDisasterReportsByUser(
 	ctx context.Context,
 	userID string,
 ) ([]disasterReportResponse, error) {

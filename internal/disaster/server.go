@@ -40,12 +40,12 @@ type disasterReportResponse struct {
 	PhotoURLs            []string      `json:"photoUrls"`
 }
 
-func (s *Server) GetDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
+func (s *Server) ListDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
 	userID := r.PathValue("userId")
 
-	reports, err := s.repository.GetDisasterReportsByUser(ctx, userID)
+	reports, err := s.repository.ListDisasterReportsByUser(ctx, userID)
 	if err != nil {
 		return api.Response{
 			Error:   fmt.Errorf("get disaster reports by user: %w", err),

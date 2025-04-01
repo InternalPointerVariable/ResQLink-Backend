@@ -72,7 +72,7 @@ func main() {
 	router.Handle("POST /api/users/{userId}/location", api.HTTPHandler(app.user.SaveLocation))
 	router.Handle(
 		"GET /api/users/{userId}/disaster-reports",
-		api.HTTPHandler(app.disaster.GetDisasterReportsByUser),
+		api.HTTPHandler(app.disaster.ListDisasterReportsByUser),
 	)
 	// router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
 	router.Handle(
