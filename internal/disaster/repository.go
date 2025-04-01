@@ -2,6 +2,7 @@ package disaster
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,6 +12,7 @@ import (
 type Repository interface {
 	ListDisasterReportsByUser(ctx context.Context, userID string) ([]disasterReportResponse, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
+	ListDisasterReports(ctx context.Context) ([]basicReport, error)
 }
 
 type repository struct {
@@ -54,7 +56,10 @@ func (r *repository) ListDisasterReportsByUser(
 	return reports, nil
 }
 
-func (r *repository) CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error {
+func (r *repository) CreateDisasterReport(
+	ctx context.Context,
+	arg createDisasterReportRequest,
+) error {
 	tx, err := r.querier.Begin(ctx)
 	if err != nil {
 		return err
@@ -94,4 +99,66 @@ func (r *repository) CreateDisasterReport(ctx context.Context, arg createDisaste
 	}
 
 	return nil
+}
+
+type basicInfo struct {
+	DisasterReportID string        `json:"disasterReportId"`
+	CreatedAt        time.Time     `json:"createdAt"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
+	Status           citizenStatus `json:"status"`
+	RespondedAt      *time.Time    `json:"respondedAt"`
+}
+
+type userBasicInfo struct {
+	UserID     string  `json:"userId"`
+	FirstName  string  `json:"firstName"`
+	MiddleName *string `json:"middleName"`
+	LastName   string  `json:"lastName"`
+
+	// TODO: Add avatar
+}
+
+type basicReport struct {
+	Disaster basicInfo     `json:"disaster"`
+	User     userBasicInfo `json:"user"`
+}
+
+func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
+	query := `
+	SELECT DISTINCT ON (users.user_id)
+		jsonb_build_object(
+			'disasterReportId', disaster_reports.disaster_report_id,
+			'createdAt', disaster_reports.created_at,
+			'updatedAt', disaster_reports.updated_at,
+			'status', disaster_reports.status,
+			'respondedAt', disaster_reports.responded_at
+		) AS disaster,
+		jsonb_build_object(
+			'userId', users.user_id,
+			'firstName', users.first_name,
+			'middleName', users.middle_name,
+			'lastName', users.last_name
+		) AS user
+	FROM disaster_reports
+	JOIN users ON users.user_id = disaster_reports.user_id
+	ORDER BY users.user_id,
+		CASE disaster_reports.status
+			WHEN 'in_danger' THEN 1
+			WHEN 'at_risk' THEN 2
+			WHEN 'safe' THEN 3
+			ELSE 4 -- For unexpected status values
+		END
+	`
+
+	rows, err := r.querier.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[basicReport])
+	if err != nil {
+		return nil, err
+	}
+
+	return reports, nil
 }

@@ -121,3 +121,22 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 		Message: "Successfully created disaster report.",
 	}
 }
+
+func (s *Server) ListDisasterReports(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx := r.Context()
+
+	reports, err := s.repository.ListDisasterReports(ctx)
+	if err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("get disaster reports: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to get disaster reports.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusOK,
+		Message: "Successfully fetched disaster reports.",
+		Data:    reports,
+	}
+}

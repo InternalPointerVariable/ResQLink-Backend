@@ -74,7 +74,7 @@ func main() {
 		"GET /api/users/{userId}/disaster-reports",
 		api.HTTPHandler(app.disaster.ListDisasterReportsByUser),
 	)
-	// router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.GetDisasterReports))
+	router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.ListDisasterReports))
 	router.Handle(
 		"POST /api/disaster-reports",
 		api.HTTPHandler(app.disaster.CreateDisasterReport),
