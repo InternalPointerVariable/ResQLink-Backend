@@ -2,6 +2,9 @@ package disaster
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -118,9 +121,16 @@ type userBasicInfo struct {
 	// TODO: Add avatar
 }
 
+type location struct {
+	Longitude int     `json:"longitude"`
+	Latitude  int     `json:"latitude"`
+	Address   *string `json:"address"`
+}
+
 type basicReport struct {
 	Disaster basicInfo     `json:"disaster"`
 	User     userBasicInfo `json:"user"`
+	Location *location     `json:"location" db:"-"`
 }
 
 func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
@@ -158,6 +168,34 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[basicReport])
 	if err != nil {
 		return nil, err
+	}
+
+	pipe := r.redisClient.Pipeline()
+	cmds := make(map[string]*redis.JSONCmd)
+
+	for _, report := range reports {
+		key := fmt.Sprintf("user:%s:location", report.User.UserID)
+		cmds[report.User.UserID] = pipe.JSONGet(ctx, key)
+	}
+
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
+		return nil, err
+	}
+
+	for i := range reports {
+		report := &reports[i]
+		result, err := cmds[report.User.UserID].Result()
+		if err != nil {
+			return nil, err
+		}
+
+		if result == "" {
+			continue
+		}
+
+		if err := json.Unmarshal([]byte(result), &report.Location); err != nil {
+			return nil, err
+		}
 	}
 
 	return reports, nil
