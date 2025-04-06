@@ -27,7 +27,9 @@ func (p *pool) Start() {
 	for {
 		select {
 		case client := <-p.register:
+			p.mu.Lock()
 			p.clients[client] = true
+			p.mu.Unlock()
 
 			slog.Info("User has connected.")
 			slog.Info(fmt.Sprintf("Size of pool: %d", len(p.clients)))
