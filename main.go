@@ -10,6 +10,7 @@ import (
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/api"
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/disaster"
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
+	"github.com/InternalPointerVariable/ResQLink-Backend/internal/ws"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -18,6 +19,7 @@ import (
 type app struct {
 	user     user.Server
 	disaster disaster.Server
+	ws       ws.Server
 }
 
 func main() {
@@ -55,14 +57,24 @@ func main() {
 
 	redisClient := redis.NewClient(opt)
 
+	wsPool := ws.NewPool()
+	go wsPool.Start()
+
+	disasterRepo := disaster.NewRepository(pool, redisClient)
+	disasterWsServer := disaster.NewSocketServer(disasterRepo)
+	wsHandlers := map[string]ws.EventHandler{"disaster": disasterWsServer}
+
 	app := app{
 		user:     *user.NewServer(user.NewRepository(pool, redisClient)),
-		disaster: *disaster.NewServer(disaster.NewRepository(pool, redisClient), baseURL),
+		disaster: *disaster.NewServer(disasterRepo, baseURL),
+		ws:       *ws.NewServer(wsPool, wsHandlers),
 	}
 
 	router := http.NewServeMux()
 
+	router.HandleFunc("GET /ws", app.ws.HandleConnection)
 	router.HandleFunc("GET /", health)
+
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
 	router.Handle("POST /api/sign-out", api.HTTPHandler(app.user.SignOut))
