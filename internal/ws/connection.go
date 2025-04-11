@@ -37,11 +37,11 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	client := &client{
 		conn:     conn,
-		pool:     s.pool,
+		hub:     s.hub,
 		handlers: s.handlers,
 	}
 
-	s.pool.register <- client
+	s.hub.register <- client
 
 	go client.writePump()
 	go client.readPump(ctx)

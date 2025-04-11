@@ -16,7 +16,7 @@ type Message struct {
 }
 
 type client struct {
-	pool *pool
+	hub *hub
 	conn *websocket.Conn
 	send chan Message
 
@@ -25,7 +25,7 @@ type client struct {
 
 func (c *client) readPump(ctx context.Context) {
 	defer func() {
-		c.pool.unregister <- c
+		c.hub.unregister <- c
 		c.conn.Close()
 	}()
 
@@ -68,7 +68,7 @@ func (c *client) writePump() {
 		select {
 		case message, ok := <-c.send:
 			if !ok {
-				slog.Error("pool closed channel")
+				slog.Error("hub closed channel")
 				return
 			}
 

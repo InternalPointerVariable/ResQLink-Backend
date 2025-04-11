@@ -57,8 +57,8 @@ func main() {
 
 	redisClient := redis.NewClient(opt)
 
-	wsPool := ws.NewPool()
-	go wsPool.Start()
+	hub := ws.NewHub()
+	go hub.Start()
 
 	disasterRepo := disaster.NewRepository(pool, redisClient)
 	disasterWsServer := disaster.NewSocketServer(disasterRepo)
@@ -67,7 +67,7 @@ func main() {
 	app := app{
 		user:     *user.NewServer(user.NewRepository(pool, redisClient)),
 		disaster: *disaster.NewServer(disasterRepo, baseURL),
-		ws:       *ws.NewServer(wsPool, wsHandlers),
+		ws:       *ws.NewServer(hub, wsHandlers),
 	}
 
 	router := http.NewServeMux()

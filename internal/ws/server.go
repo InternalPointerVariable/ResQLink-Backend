@@ -9,13 +9,13 @@ type EventHandler interface {
 }
 
 type Server struct {
-	pool     *pool
+	hub     *hub
 	handlers map[string]EventHandler
 }
 
-func NewServer(pool *pool, handlers map[string]EventHandler) *Server {
+func NewServer(hub *hub, handlers map[string]EventHandler) *Server {
 	return &Server{
-		pool:     pool,
+		hub:     hub,
 		handlers: handlers,
 	}
 }
