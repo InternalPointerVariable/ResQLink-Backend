@@ -37,7 +37,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	client := &client{
 		conn:     conn,
-		hub:     s.hub,
+		hub:      s.hub,
 		handlers: s.handlers,
 	}
 

@@ -16,7 +16,7 @@ type Message struct {
 }
 
 type client struct {
-	hub *hub
+	hub  *hub
 	conn *websocket.Conn
 	send chan Message
 
