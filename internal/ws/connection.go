@@ -44,5 +44,5 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	s.hub.register <- client
 
 	go client.writePump()
-	go client.readPump(ctx)
+	client.readPump(ctx)
 }
