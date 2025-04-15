@@ -46,3 +46,9 @@ func (p *hub) Start() {
 		}
 	}
 }
+
+func (h *hub) Broadcast(msg Message) {
+	for client := range h.clients {
+		client.send <- msg
+	}
+}

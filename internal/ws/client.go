@@ -57,7 +57,7 @@ func (c *client) readPump(ctx context.Context) {
 			continue
 		}
 
-		c.send <- response
+		c.hub.Broadcast(response)
 	}
 }
 
