@@ -80,8 +80,6 @@ func main() {
 	router.Handle("POST /api/sign-out", api.HTTPHandler(app.user.SignOut))
 	router.Handle("GET /api/session", api.HTTPHandler(app.user.GetSession))
 
-	router.Handle("GET /api/users/{userId}/location", api.HTTPHandler(app.user.GetLocation))
-	router.Handle("POST /api/users/{userId}/location", api.HTTPHandler(app.user.SaveLocation))
 	router.Handle(
 		"GET /api/users/{userId}/disaster-reports",
 		api.HTTPHandler(app.disaster.ListDisasterReportsByUser),

@@ -2,9 +2,7 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,8 +13,6 @@ type Repository interface {
 	Get(ctx context.Context, userID string) (userResponse, error)
 	SignUp(ctx context.Context, arg signUpRequest) error
 	SignIn(ctx context.Context, arg signInRequest) (signInResponse, error)
-	SaveLocation(ctx context.Context, arg saveLocationRequest) error
-	GetLocation(ctx context.Context, userID string) (location, error)
 
 	generateSessionToken() (string, error)
 	createSession(ctx context.Context, token, userID string) (session, error)
@@ -168,54 +164,4 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
 		User:  user,
 		Token: token,
 	}, nil
-}
-
-type saveLocationRequest struct {
-	UserID    string  `json:"userId"`
-	Longitude int     `json:"longitude"`
-	Latitude  int     `json:"latitude"`
-	Address   *string `json:"address"`
-}
-
-type location struct {
-	Longitude int     `json:"longitude"`
-	Latitude  int     `json:"latitude"`
-	Address   *string `json:"address"`
-}
-
-func (r *repository) SaveLocation(ctx context.Context, arg saveLocationRequest) error {
-	loc := location{
-		Longitude: arg.Longitude,
-		Latitude:  arg.Latitude,
-		Address:   arg.Address,
-	}
-
-	key := fmt.Sprintf("user:%s:location", arg.UserID)
-	if err := r.redisClient.JSONSet(ctx, key, "$", loc).Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-var errLocationNotFound = errors.New("location not found")
-
-func (r *repository) GetLocation(ctx context.Context, userID string) (location, error) {
-	key := fmt.Sprintf("user:%s:location", userID)
-	result, err := r.redisClient.JSONGet(ctx, key).Result()
-	if err != nil {
-		return location{}, err
-	}
-
-	if result == "" {
-		return location{}, errLocationNotFound
-	}
-
-	var loc location
-
-	if err := json.Unmarshal([]byte(result), &loc); err != nil {
-		return location{}, err
-	}
-
-	return loc, nil
 }

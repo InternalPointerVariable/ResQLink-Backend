@@ -174,63 +174,6 @@ func (s *Server) SignOut(w http.ResponseWriter, r *http.Request) api.Response {
 	}
 }
 
-func (s *Server) SaveLocation(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx := r.Context()
-
-	var data saveLocationRequest
-
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&data); err != nil {
-		return api.Response{
-			Error:   fmt.Errorf("save location: %w", err),
-			Code:    http.StatusBadRequest,
-			Message: "Invalid save location request.",
-		}
-	}
-
-	if err := s.repository.SaveLocation(ctx, data); err != nil {
-		return api.Response{
-			Error:   fmt.Errorf("save location: %w", err),
-			Code:    http.StatusInternalServerError,
-			Message: "Failed to save location.",
-		}
-	}
-
-	return api.Response{
-		Code:    http.StatusCreated,
-		Message: "Successfully saved location.",
-	}
-}
-
-func (s *Server) GetLocation(w http.ResponseWriter, r *http.Request) api.Response {
-	ctx := r.Context()
-
-	userID := r.PathValue("userId")
-
-	loc, err := s.repository.GetLocation(ctx, userID)
-	if err != nil {
-		if errors.Is(err, errLocationNotFound) {
-			return api.Response{
-				Error:   fmt.Errorf("get location: %w", err),
-				Code:    http.StatusNotFound,
-				Message: "Location not found.",
-			}
-		}
-
-		return api.Response{
-			Error:   fmt.Errorf("get location: %w", err),
-			Code:    http.StatusInternalServerError,
-			Message: "Failed to get location.",
-		}
-	}
-
-	return api.Response{
-		Code:    http.StatusOK,
-		Message: "Successfully fetched location.",
-		Data:    loc,
-	}
-}
-
 func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
