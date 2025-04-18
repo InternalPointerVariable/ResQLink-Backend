@@ -2,6 +2,7 @@ package disaster
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/ws"
 )
@@ -17,9 +18,29 @@ func NewSocketServer(repository Repository) *SocketServer {
 }
 
 const (
-	createReport = "disaster:create-report"
+	createReport = "disaster:create_report"
+	saveLocation = "disaster:save_location"
 )
 
-func (s *SocketServer) Handle(ctx context.Context, request ws.Message) (ws.Message, error) {
+func (s *SocketServer) Handle(ctx context.Context, msg ws.Message) (ws.Message, error) {
+	switch msg.Event {
+	case createReport:
+		var req createDisasterReportRequest
+
+		return msg.Response(req)
+
+	case saveLocation:
+		var req saveLocationRequest
+		if err := json.Unmarshal(msg.Data, &req); err != nil {
+			return ws.Message{}, err
+		}
+
+		if err := s.repository.SaveLocation(ctx, req); err != nil {
+			return ws.Message{}, err
+		}
+
+		return msg.Response(req)
+	}
+
 	return ws.Message{}, nil
 }
