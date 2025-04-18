@@ -11,4 +11,10 @@ GET http://{{host}}/api/disaster-reports
 @userId=ea5d6daa-2ba6-454a-88bd-f712cd3d3c8b
 GET http://{{host}}/api/users/{{userId}}/disaster-reports
 
+### Save Location
 
+WS ws://{{host}}/ws
+
+{ "event": "disaster:save_location", "data": { "location": { "longitude": 30, "latitude": 18, "address": "Local McDonald's" }, "userId": "ea5d6daa-2ba6-454a-88bd-f712cd3d3c8b" } }
+
+###
