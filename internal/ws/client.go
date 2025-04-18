@@ -10,17 +10,21 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Message struct {
-	Event string `json:"event"`
-	Data  any    `json:"data"`
-}
-
 type client struct {
 	hub  *hub
 	conn *websocket.Conn
 	send chan Message
 
 	handlers map[string]EventHandler
+}
+
+func NewClient(conn *websocket.Conn, hub *hub, handlers map[string]EventHandler) *client {
+	return &client{
+		conn:     conn,
+		hub:      hub,
+		handlers: handlers,
+		send:     make(chan Message),
+	}
 }
 
 func (c *client) readPump(ctx context.Context) {
@@ -42,7 +46,7 @@ func (c *client) readPump(ctx context.Context) {
 			continue
 		}
 
-		s := strings.Split(":", string(request.Event))
+		s := strings.Split(string(request.Event), ":")
 		key := s[0]
 
 		handler, ok := c.handlers[key]

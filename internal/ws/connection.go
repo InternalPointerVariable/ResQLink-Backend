@@ -35,11 +35,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Authenticate user
 
-	client := &client{
-		conn:     conn,
-		hub:      s.hub,
-		handlers: s.handlers,
-	}
+	client := NewClient(conn, s.hub, s.handlers)
 
 	s.hub.register <- client
 
