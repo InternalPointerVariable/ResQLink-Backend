@@ -16,6 +16,7 @@ type Repository interface {
 	ListDisasterReportsByUser(ctx context.Context, userID string) (disasterReportResponse, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
 	ListDisasterReports(ctx context.Context) ([]basicReport, error)
+	SaveLocation(ctx context.Context, arg saveLocationRequest) error
 }
 
 type repository struct {
@@ -241,4 +242,18 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	}
 
 	return reports, nil
+}
+
+type saveLocationRequest struct {
+	Location location `json:"location"`
+	UserID   string   `json:"userId"`
+}
+
+func (r *repository) SaveLocation(ctx context.Context, arg saveLocationRequest) error {
+	key := fmt.Sprintf("user:%s:location", arg.UserID)
+	if err := r.redisClient.JSONSet(ctx, key, "$", arg.Location).Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
