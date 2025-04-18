@@ -3,7 +3,6 @@ package disaster
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/InternalPointerVariable/ResQLink-Backend/internal/api"
 )
@@ -28,16 +27,18 @@ const (
 	inDanger citizenStatus = "in_danger"
 )
 
+type fullReport struct {
+	basicInfo
+
+	RawSituation         string   `json:"rawSituation"`
+	AIGeneratedSituation *string  `json:"aiGeneratedSituation"`
+	PhotoURLs            []string `json:"photoUrls"`
+}
+
 type disasterReportResponse struct {
-	DisasterReportID     string        `json:"disasterReportId"`
-	CreatedAt            time.Time     `json:"createdAt"`
-	UpdatedAt            time.Time     `json:"updatedAt"`
-	Status               citizenStatus `json:"status"`
-	RawSituation         string        `json:"rawSituation"`
-	AIGeneratedSituation *string       `json:"aiGeneratedSituation"`
-	RespondedAt          *time.Time    `json:"respondedAt"`
-	UserID               string        `json:"userId"`
-	PhotoURLs            []string      `json:"photoUrls"`
+	Reports    []fullReport  `json:"reports"`
+	ReportedBy userBasicInfo `json:"reportedBy"`
+	Location   *location     `json:"location"   db:"-"`
 }
 
 func (s *Server) ListDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {

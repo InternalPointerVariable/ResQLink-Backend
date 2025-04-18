@@ -13,7 +13,7 @@ import (
 )
 
 type Repository interface {
-	ListDisasterReportsByUser(ctx context.Context, userID string) ([]disasterReportResponse, error)
+	ListDisasterReportsByUser(ctx context.Context, userID string) (disasterReportResponse, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
 	ListDisasterReports(ctx context.Context) ([]basicReport, error)
 }
@@ -34,29 +34,71 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 func (r *repository) ListDisasterReportsByUser(
 	ctx context.Context,
 	userID string,
-) ([]disasterReportResponse, error) {
+) (disasterReportResponse, error) {
 	query := `
+		WITH photos AS (
+			SELECT disaster_report_id,
+				array_agg(photo_url) 
+					FILTER (WHERE photo_url IS NOT NULL) AS photo_urls
+			FROM disaster_photos
+			GROUP BY disaster_report_id
+		), 
+		user_reports AS (
+			SELECT 
+				disaster_reports.user_id,
+				jsonb_agg(
+					jsonb_build_object(
+						'disasterReportId', disaster_reports.disaster_report_id,
+						'createdAt', disaster_reports.created_at,
+						'updatedAt', disaster_reports.updated_at,
+						'status', disaster_reports.status,
+						'respondedAt', disaster_reports.responded_at,
+						'rawSituation', disaster_reports.raw_situation,
+						'aiGeneratedSituation', disaster_reports.ai_generated_situation,
+						'photoUrls', photos.photo_urls
+					)
+					ORDER BY disaster_reports.created_at DESC
+				) AS reports
+			FROM disaster_reports 
+			LEFT JOIN photos 
+				ON photos.disaster_report_id = disaster_reports.disaster_report_id
+			GROUP BY disaster_reports.user_id
+		)
         SELECT 
-            disaster_reports.*,
-            array_agg(disaster_photos.photo_url) 
-                FILTER (WHERE disaster_photos.photo_url IS NOT NULL) AS photo_urls
-        FROM disaster_reports 
-        LEFT JOIN disaster_photos 
-            ON disaster_photos.disaster_report_id = disaster_reports.disaster_report_id
-        WHERE disaster_reports.user_id = ($1)
-        GROUP BY disaster_reports.disaster_report_id
+			user_reports.reports,
+			jsonb_build_object(
+				'userId', users.user_id,
+				'firstName', users.first_name,
+				'middleName', users.middle_name,
+				'lastName', users.last_name
+			) AS reported_by
+        FROM user_reports 
+		JOIN users ON users.user_id = user_reports.user_id
+        WHERE user_reports.user_id = ($1)
     `
 	rows, err := r.querier.Query(ctx, query, userID)
 	if err != nil {
-		return nil, err
+		return disasterReportResponse{}, err
 	}
 
-	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[disasterReportResponse])
+	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[disasterReportResponse])
 	if err != nil {
-		return nil, err
+		return disasterReportResponse{}, err
 	}
 
-	return reports, nil
+	key := fmt.Sprintf("user:%s:location", userID)
+	result, err := r.redisClient.JSONGet(ctx, key).Result()
+	if err != nil {
+		return disasterReportResponse{}, err
+	}
+
+	if result != "" {
+		if err := json.Unmarshal([]byte(result), &disaster.Location); err != nil {
+			return disasterReportResponse{}, err
+		}
+	}
+
+	return disaster, nil
 }
 
 func (r *repository) CreateDisasterReport(
