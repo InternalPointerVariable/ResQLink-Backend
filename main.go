@@ -57,7 +57,7 @@ func main() {
 
 	redisClient := redis.NewClient(opt)
 
-	hub := ws.NewHub()
+	hub := ws.NewHub(redisClient)
 	go hub.Start()
 
 	disasterRepo := disaster.NewRepository(pool, redisClient)
