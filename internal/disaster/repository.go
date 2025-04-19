@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 type Repository interface {
-	ListDisasterReportsByUser(ctx context.Context, userID string) (disasterReportResponse, error)
+	ListDisasterReportsByUser(ctx context.Context, userID string) (userReports, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
-	ListDisasterReports(ctx context.Context) ([]basicReport, error)
+	ListDisasterReports(ctx context.Context) ([]latestReport, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
 }
 
@@ -31,11 +32,25 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 	}
 }
 
+type fullReport struct {
+	basicReport
+
+	RawSituation         string   `json:"rawSituation"`
+	AIGeneratedSituation *string  `json:"aiGeneratedSituation"`
+	PhotoURLs            []string `json:"photoUrls"`
+}
+
+type userReports struct {
+	Reports    []fullReport   `json:"reports"`
+	ReportedBy user.BasicInfo `json:"reportedBy"`
+	Location   *location      `json:"location"   db:"-"`
+}
+
 // TODO: Ordering and filtering
 func (r *repository) ListDisasterReportsByUser(
 	ctx context.Context,
 	userID string,
-) (disasterReportResponse, error) {
+) (userReports, error) {
 	query := `
 		WITH photos AS (
 			SELECT disaster_report_id,
@@ -79,23 +94,23 @@ func (r *repository) ListDisasterReportsByUser(
     `
 	rows, err := r.querier.Query(ctx, query, userID)
 	if err != nil {
-		return disasterReportResponse{}, err
+		return userReports{}, err
 	}
 
-	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[disasterReportResponse])
+	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[userReports])
 	if err != nil {
-		return disasterReportResponse{}, err
+		return userReports{}, err
 	}
 
 	key := fmt.Sprintf("user:%s:location", userID)
 	result, err := r.redisClient.JSONGet(ctx, key).Result()
 	if err != nil {
-		return disasterReportResponse{}, err
+		return userReports{}, err
 	}
 
 	if result != "" {
 		if err := json.Unmarshal([]byte(result), &disaster.Location); err != nil {
-			return disasterReportResponse{}, err
+			return userReports{}, err
 		}
 	}
 
@@ -147,21 +162,20 @@ func (r *repository) CreateDisasterReport(
 	return nil
 }
 
-type basicInfo struct {
+type citizenStatus = string
+
+const (
+	safe     citizenStatus = "safe"
+	atRisk   citizenStatus = "at_risk"
+	inDanger citizenStatus = "in_danger"
+)
+
+type basicReport struct {
 	DisasterReportID string        `json:"disasterReportId"`
 	CreatedAt        time.Time     `json:"createdAt"`
 	UpdatedAt        time.Time     `json:"updatedAt"`
 	Status           citizenStatus `json:"status"`
 	RespondedAt      *time.Time    `json:"respondedAt"`
-}
-
-type userBasicInfo struct {
-	UserID     string  `json:"userId"`
-	FirstName  string  `json:"firstName"`
-	MiddleName *string `json:"middleName"`
-	LastName   string  `json:"lastName"`
-
-	// TODO: Add avatar
 }
 
 type location struct {
@@ -170,13 +184,13 @@ type location struct {
 	Address   *string `json:"address"`
 }
 
-type basicReport struct {
-	Disaster basicInfo     `json:"disaster"`
-	User     userBasicInfo `json:"user"`
-	Location *location     `json:"location" db:"-"`
+type latestReport struct {
+	Report     basicReport    `json:"report"`
+	ReportedBy user.BasicInfo `json:"reportedBy"`
+	Location   *location      `json:"location"   db:"-"`
 }
 
-func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
+func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, error) {
 	query := `
 	SELECT DISTINCT ON (users.user_id)
 		jsonb_build_object(
@@ -208,7 +222,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 		return nil, err
 	}
 
-	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[basicReport])
+	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[latestReport])
 	if err != nil {
 		return nil, err
 	}

@@ -71,14 +71,19 @@ func (s *Server) SignUp(w http.ResponseWriter, r *http.Request) api.Response {
 	}
 }
 
+type BasicInfo struct {
+	UserID     string  `json:"userId"`
+	FirstName  string  `json:"firstName"`
+	MiddleName *string `json:"middleName"`
+	LastName   string  `json:"lastName"`
+}
+
 type userResponse struct {
-	UserID                string    `json:"userId"`
+	BasicInfo
+
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 	Email                 string    `json:"email"`
-	FirstName             string    `json:"firstName"`
-	MiddleName            *string   `json:"middleName"`
-	LastName              string    `json:"lastName"`
 	BirthDate             time.Time `json:"birthDate"`
 	Role                  role      `json:"role"`
 	StatusUpdateFrequency uint      `json:"statusUpdateFrequency"`

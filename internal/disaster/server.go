@@ -19,28 +19,6 @@ func NewServer(repository Repository, baseURL string) *Server {
 	}
 }
 
-type citizenStatus = string
-
-const (
-	safe     citizenStatus = "safe"
-	atRisk   citizenStatus = "at_risk"
-	inDanger citizenStatus = "in_danger"
-)
-
-type fullReport struct {
-	basicInfo
-
-	RawSituation         string   `json:"rawSituation"`
-	AIGeneratedSituation *string  `json:"aiGeneratedSituation"`
-	PhotoURLs            []string `json:"photoUrls"`
-}
-
-type disasterReportResponse struct {
-	Reports    []fullReport  `json:"reports"`
-	ReportedBy userBasicInfo `json:"reportedBy"`
-	Location   *location     `json:"location"   db:"-"`
-}
-
 func (s *Server) ListDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
