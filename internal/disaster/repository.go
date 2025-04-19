@@ -159,7 +159,12 @@ func (r *repository) CreateDisasterReport(
 		return err
 	}
 
-	if err := r.redisClient.Publish(ctx, createReport, arg).Err(); err != nil {
+	argB, err := json.Marshal(arg)
+	if err != nil {
+		return err
+	}
+
+	if err := r.redisClient.Publish(ctx, createReport, argB).Err(); err != nil {
 		return err
 	}
 
