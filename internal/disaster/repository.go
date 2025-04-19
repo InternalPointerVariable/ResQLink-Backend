@@ -203,13 +203,13 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 			'updatedAt', disaster_reports.updated_at,
 			'status', disaster_reports.status,
 			'respondedAt', disaster_reports.responded_at
-		) AS disaster,
+		) AS report,
 		jsonb_build_object(
 			'userId', users.user_id,
 			'firstName', users.first_name,
 			'middleName', users.middle_name,
 			'lastName', users.last_name
-		) AS user
+		) AS reported_by
 	FROM disaster_reports
 	JOIN users ON users.user_id = disaster_reports.user_id
 	ORDER BY users.user_id,
@@ -235,8 +235,8 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 	cmds := make(map[string]*redis.JSONCmd)
 
 	for _, report := range reports {
-		key := fmt.Sprintf("user:%s:location", report.User.UserID)
-		cmds[report.User.UserID] = pipe.JSONGet(ctx, key)
+		key := fmt.Sprintf("user:%s:location", report.ReportedBy.UserID)
+		cmds[report.ReportedBy.UserID] = pipe.JSONGet(ctx, key)
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
@@ -245,7 +245,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 
 	for i := range reports {
 		report := &reports[i]
-		result, err := cmds[report.User.UserID].Result()
+		result, err := cmds[report.ReportedBy.UserID].Result()
 		if err != nil {
 			return nil, err
 		}
