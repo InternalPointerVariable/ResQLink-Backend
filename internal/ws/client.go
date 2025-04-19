@@ -37,7 +37,7 @@ func (c *client) readPump(ctx context.Context) {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			slog.Error(err.Error())
-			continue
+			return
 		}
 
 		var request Message
