@@ -18,17 +18,12 @@ func NewSocketServer(repository Repository) *SocketServer {
 }
 
 const (
-	createReport = "disaster:create_report"
+	createReport = "disaster:create_report" // Used as a PubSub channel
 	saveLocation = "disaster:save_location"
 )
 
 func (s *SocketServer) Handle(ctx context.Context, msg ws.Message) (ws.Message, error) {
 	switch msg.Event {
-	case createReport:
-		var req createDisasterReportRequest
-
-		return msg.Response(req)
-
 	case saveLocation:
 		var req saveLocationRequest
 		if err := json.Unmarshal(msg.Data, &req); err != nil {
