@@ -23,6 +23,13 @@ func NewServer(repository Repository) *Server {
 	}
 }
 
+type role = string
+
+const (
+	citizen   role = "citizen"
+	responder role = "responder"
+)
+
 type signUpRequest struct {
 	Email                 string    `json:"email"`
 	Password              string    `json:"password"`

@@ -13,6 +13,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type session struct {
+	SessionID string    `json:"sessionId"`
+	UserID    string    `json:"userId"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
 func (r *repository) generateSessionToken() (string, error) {
 	bytes := make([]byte, 20)
 	if _, err := rand.Read(bytes); err != nil {
