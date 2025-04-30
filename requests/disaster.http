@@ -2,21 +2,25 @@
 @port=3002
 @host={{hostname}}:{{port}}
 
-### Get Disaster Reports
+### 
 
+# @name Get Disaster Reports
 GET http://{{host}}/api/disaster-reports
 
-### Get User's Disaster Reports
+###
 
+# @name Get User's Disaster Reports
 @userId=ea5d6daa-2ba6-454a-88bd-f712cd3d3c8b
 GET http://{{host}}/api/users/{{userId}}/disaster-reports
 
-### WebSocket
+### 
 
+# @name WebSocket (WS)
 WS ws://{{host}}/ws
 
-### Save Location
+### 
 
+# @name WS Save Location
 WS ws://{{host}}/ws
 
 { "event": "disaster:save_location", "data": { "location": { "longitude": 30, "latitude": 18, "address": "Local McDonald's" }, "userId": "ea5d6daa-2ba6-454a-88bd-f712cd3d3c8b" } }
