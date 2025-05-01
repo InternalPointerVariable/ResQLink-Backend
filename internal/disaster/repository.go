@@ -16,7 +16,7 @@ import (
 type Repository interface {
 	ListDisasterReportsByUser(ctx context.Context, userID string) (userReports, error)
 	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
-	ListDisasterReports(ctx context.Context) ([]latestReport, error)
+	ListDisasterReports(ctx context.Context) ([]basicReport, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
 }
 
@@ -32,12 +32,50 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 	}
 }
 
+type citizenStatus = string
+
+const (
+	safe     citizenStatus = "safe"
+	atRisk   citizenStatus = "at_risk"
+	inDanger citizenStatus = "in_danger"
+)
+
+type reporter struct {
+	ReporterID string    `json:"reporterId"`
+	CreatedAt  time.Time `json:"createdAt"`
+	Name       string    `json:"name"`
+	UserID     *string   `json:"userId"`
+}
+
+type responder struct {
+	ResponderID string    `json:"responderId"`
+	CreatedAt   time.Time `json:"createdAt"`
+	Name        string    `json:"name"`
+	UserID      *string   `json:"userId"`
+}
+
+type location struct {
+	Longitude int     `json:"longitude"`
+	Latitude  int     `json:"latitude"`
+	Address   *string `json:"address"`
+}
+
+type basicReport struct {
+	DisasterReportID string        `json:"disasterReportId"`
+	CreatedAt        time.Time     `json:"createdAt"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
+	Status           citizenStatus `json:"status"`
+	Reporter         reporter      `json:"reporter"`
+	Responder        *responder    `json:"responder"`
+	Location         location      `json:"location"         db:"-"`
+}
+
 type fullReport struct {
 	basicReport
 
-	RawSituation         string   `json:"rawSituation"`
-	AIGeneratedSituation *string  `json:"aiGeneratedSituation"`
-	PhotoURLs            []string `json:"photoUrls"`
+	RawSituation   string   `json:"rawSituation"`
+	AIGenSituation *string  `json:"aiGenSituation"`
+	PhotoURLs      []string `json:"photoUrls"`
 }
 
 type userReports struct {
@@ -70,7 +108,7 @@ func (r *repository) ListDisasterReportsByUser(
 						'status', disaster_reports.status,
 						'respondedAt', disaster_reports.responded_at,
 						'rawSituation', disaster_reports.raw_situation,
-						'aiGeneratedSituation', disaster_reports.ai_generated_situation,
+						'aiGenSituation', disaster_reports.ai_gen_situation,
 						'photoUrls', photos.photo_urls
 					)
 					ORDER BY disaster_reports.created_at DESC
@@ -171,53 +209,29 @@ func (r *repository) CreateDisasterReport(
 	return nil
 }
 
-type citizenStatus = string
-
-const (
-	safe     citizenStatus = "safe"
-	atRisk   citizenStatus = "at_risk"
-	inDanger citizenStatus = "in_danger"
-)
-
-type basicReport struct {
-	DisasterReportID string        `json:"disasterReportId"`
-	CreatedAt        time.Time     `json:"createdAt"`
-	UpdatedAt        time.Time     `json:"updatedAt"`
-	Status           citizenStatus `json:"status"`
-	RespondedAt      *time.Time    `json:"respondedAt"`
-}
-
-type location struct {
-	Longitude int     `json:"longitude"`
-	Latitude  int     `json:"latitude"`
-	Address   *string `json:"address"`
-}
-
-type latestReport struct {
-	Report     basicReport    `json:"report"`
-	ReportedBy user.BasicInfo `json:"reportedBy"`
-	Location   *location      `json:"location"   db:"-"`
-}
-
-func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, error) {
+func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
 	query := `
-	SELECT DISTINCT ON (users.user_id)
+	SELECT DISTINCT ON (reporters.reporter_id)
+		disaster_reports.disaster_report_id,
+		disaster_reports.created_at,
+		disaster_reports.updated_at,
+		disaster_reports.status,
 		jsonb_build_object(
-			'disasterReportId', disaster_reports.disaster_report_id,
-			'createdAt', disaster_reports.created_at,
-			'updatedAt', disaster_reports.updated_at,
-			'status', disaster_reports.status,
-			'respondedAt', disaster_reports.responded_at
-		) AS report,
+			'reporterId', reporters.reporter_id,
+			'createdAt', reporters.created_at,
+			'name', reporters.name,
+			'userId', reporters.user_id
+		) AS reporter,
 		jsonb_build_object(
-			'userId', users.user_id,
-			'firstName', users.first_name,
-			'middleName', users.middle_name,
-			'lastName', users.last_name
-		) AS reported_by
+			'responderId', reporters.reporter_id,
+			'createdAt', responders.created_at,
+			'name', responders.name,
+			'userId', responders.user_id
+		) AS responder
 	FROM disaster_reports
-	JOIN users ON users.user_id = disaster_reports.user_id
-	ORDER BY users.user_id,
+	JOIN reporters ON reporters.reporter_id = disaster_reports.reporter_id
+	JOIN responders ON responders.responder_id = disaster_reports.responder_id
+	ORDER BY reporters.reporter_id,
 		CASE disaster_reports.status
 			WHEN 'in_danger' THEN 1
 			WHEN 'at_risk' THEN 2
@@ -231,7 +245,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 		return nil, err
 	}
 
-	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[latestReport])
+	reports, err := pgx.CollectRows(rows, pgx.RowToStructByName[basicReport])
 	if err != nil {
 		return nil, err
 	}
@@ -240,8 +254,8 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 	cmds := make(map[string]*redis.JSONCmd)
 
 	for _, report := range reports {
-		key := fmt.Sprintf("user:%s:location", report.ReportedBy.UserID)
-		cmds[report.ReportedBy.UserID] = pipe.JSONGet(ctx, key)
+		key := fmt.Sprintf("user:%s:location", report.Reporter.ReporterID)
+		cmds[report.Reporter.ReporterID] = pipe.JSONGet(ctx, key)
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
@@ -250,7 +264,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]latestReport, e
 
 	for i := range reports {
 		report := &reports[i]
-		result, err := cmds[report.ReportedBy.UserID].Result()
+		result, err := cmds[report.Reporter.ReporterID].Result()
 		if err != nil {
 			return nil, err
 		}
