@@ -7,16 +7,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/InternalPointerVariable/ResQLink-Backend/internal/user"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 type Repository interface {
-	ListDisasterReportsByUser(ctx context.Context, userID string) (userReports, error)
-	CreateDisasterReport(ctx context.Context, arg createDisasterReportRequest) error
+	CreateDisasterReport(ctx context.Context, arg createReportRequest) error
 	ListDisasterReports(ctx context.Context) ([]basicReport, error)
+	ListDisasterReportsByUser(ctx context.Context, userID string) (reportsByUserResponse, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
 }
 
@@ -78,140 +77,9 @@ type fullReport struct {
 	PhotoURLs      []string `json:"photoUrls"`
 }
 
-type userReports struct {
-	Reports    []fullReport   `json:"reports"`
-	ReportedBy user.BasicInfo `json:"reportedBy"`
-	Location   *location      `json:"location"   db:"-"`
-}
-
-// TODO: Ordering and filtering
-func (r *repository) ListDisasterReportsByUser(
-	ctx context.Context,
-	userID string,
-) (userReports, error) {
-	query := `
-		WITH photos AS (
-			SELECT disaster_report_id,
-				array_agg(photo_url) 
-					FILTER (WHERE photo_url IS NOT NULL) AS photo_urls
-			FROM disaster_photos
-			GROUP BY disaster_report_id
-		), 
-		user_reports AS (
-			SELECT 
-				disaster_reports.user_id,
-				jsonb_agg(
-					jsonb_build_object(
-						'disasterReportId', disaster_reports.disaster_report_id,
-						'createdAt', disaster_reports.created_at,
-						'updatedAt', disaster_reports.updated_at,
-						'status', disaster_reports.status,
-						'respondedAt', disaster_reports.responded_at,
-						'rawSituation', disaster_reports.raw_situation,
-						'aiGenSituation', disaster_reports.ai_gen_situation,
-						'photoUrls', photos.photo_urls
-					)
-					ORDER BY disaster_reports.created_at DESC
-				) AS reports
-			FROM disaster_reports 
-			LEFT JOIN photos 
-				ON photos.disaster_report_id = disaster_reports.disaster_report_id
-			GROUP BY disaster_reports.user_id
-		)
-        SELECT 
-			user_reports.reports,
-			jsonb_build_object(
-				'userId', users.user_id,
-				'firstName', users.first_name,
-				'middleName', users.middle_name,
-				'lastName', users.last_name
-			) AS reported_by
-        FROM user_reports 
-		JOIN users ON users.user_id = user_reports.user_id
-        WHERE user_reports.user_id = ($1)
-    `
-	rows, err := r.querier.Query(ctx, query, userID)
-	if err != nil {
-		return userReports{}, err
-	}
-
-	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[userReports])
-	if err != nil {
-		return userReports{}, err
-	}
-
-	key := fmt.Sprintf("user:%s:location", userID)
-	result, err := r.redisClient.JSONGet(ctx, key).Result()
-	if err != nil {
-		return userReports{}, err
-	}
-
-	if result != "" {
-		if err := json.Unmarshal([]byte(result), &disaster.Location); err != nil {
-			return userReports{}, err
-		}
-	}
-
-	return disaster, nil
-}
-
-func (r *repository) CreateDisasterReport(
-	ctx context.Context,
-	arg createDisasterReportRequest,
-) error {
-	tx, err := r.querier.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	query := `
-        INSERT INTO disaster_reports (
-            user_id,
-            status,
-            raw_situation
-        )
-        VALUES ($1, $2, $3)
-        RETURNING disaster_report_id
-    `
-
-	var disasterReportID string
-
-	row := tx.QueryRow(ctx, query, arg.UserID, arg.Status, arg.RawSituation)
-	if err := row.Scan(&disasterReportID); err != nil {
-		return err
-	}
-
-	query = `
-    INSERT INTO disaster_photos (photo_url, disaster_report_id)
-    VALUES ($1, $2)
-    `
-
-	for _, photoURL := range arg.PhotoURLs {
-		if _, err := tx.Exec(ctx, query, photoURL, disasterReportID); err != nil {
-			return err
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	argB, err := json.Marshal(arg)
-	if err != nil {
-		return err
-	}
-
-	if err := r.redisClient.Publish(ctx, createReport, argB).Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
 	query := `
-	SELECT DISTINCT ON (reporters.reporter_id)
+	SELECT DISTINCT ON (disaster_reports.reporter_id)
 		disaster_reports.disaster_report_id,
 		disaster_reports.created_at,
 		disaster_reports.updated_at,
@@ -219,19 +87,24 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 		jsonb_build_object(
 			'reporterId', reporters.reporter_id,
 			'createdAt', reporters.created_at,
-			'name', reporters.name,
+			'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name),
 			'userId', reporters.user_id
 		) AS reporter,
-		jsonb_build_object(
-			'responderId', reporters.reporter_id,
-			'createdAt', responders.created_at,
-			'name', responders.name,
-			'userId', responders.user_id
-		) AS responder
+ 		CASE WHEN responders.responder_id IS NOT NULL THEN
+			jsonb_build_object(
+				'responderId', responders.responder_id,
+				'createdAt', responders.created_at,
+				'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name),
+				'userId', responders.user_id
+			)
+		ELSE NULL
+		END AS responder
 	FROM disaster_reports
 	JOIN reporters ON reporters.reporter_id = disaster_reports.reporter_id
-	JOIN responders ON responders.responder_id = disaster_reports.responder_id
-	ORDER BY reporters.reporter_id,
+	LEFT JOIN responders ON responders.responder_id = disaster_reports.responder_id
+	LEFT JOIN users ON users.user_id = reporters.user_id
+	ORDER BY 
+		disaster_reports.reporter_id,
 		CASE disaster_reports.status
 			WHEN 'in_danger' THEN 1
 			WHEN 'at_risk' THEN 2
@@ -279,6 +152,171 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	}
 
 	return reports, nil
+}
+
+type userReport struct {
+	DisasterReportID string        `json:"disasterReportId"`
+	CreatedAt        time.Time     `json:"createdAt"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
+	Status           citizenStatus `json:"status"`
+	Responder        *responder    `json:"responder"`
+	RawSituation     string        `json:"rawSituation"`
+	AIGenSituation   *string       `json:"aiGenSituation"`
+	PhotoURLs        []string      `json:"photoUrls"`
+}
+
+type reportsByUserResponse struct {
+	Reports  []userReport `json:"reports"`
+	Reporter reporter     `json:"reporter"`
+	Location *location    `json:"location" db:"-"`
+}
+
+// TODO: Ordering and filtering
+func (r *repository) ListDisasterReportsByUser(
+	ctx context.Context,
+	reporterID string,
+) (reportsByUserResponse, error) {
+	query := `
+	WITH photos AS (
+		SELECT 
+			disaster_report_id,
+			array_agg(photo_url) FILTER (WHERE photo_url IS NOT NULL) AS photo_urls
+		FROM disaster_photos
+		GROUP BY disaster_report_id
+	),
+	user_reports AS (
+		SELECT 
+			jsonb_agg(
+				jsonb_build_object(
+					'disasterReportId', disaster_reports.disaster_report_id,
+					'createdAt', disaster_reports.created_at,
+					'updatedAt', disaster_reports.updated_at,
+					'status', disaster_reports.status,
+					'rawSituation', disaster_reports.raw_situation,
+					'aiGenSituation', disaster_reports.ai_gen_situation,
+					'photoUrls', photos.photo_urls,
+					'responder', CASE WHEN responders.responder_id IS NOT NULL THEN
+						jsonb_build_object(
+							'responderId', responders.responder_id,
+							'name', responders.name,
+							'userId', responders.user_id,
+							'createdAt', responders.created_at
+						)
+						ELSE NULL END
+				)
+				ORDER BY disaster_reports.created_at DESC
+			) AS reports,
+			disaster_reports.reporter_id
+		FROM disaster_reports 
+		LEFT JOIN responders ON responders.responder_id = disaster_reports.responder_id
+		LEFT JOIN photos ON photos.disaster_report_id = disaster_reports.disaster_report_id
+		GROUP BY disaster_reports.reporter_id
+	)
+	SELECT 
+		user_reports.reports,
+		jsonb_build_object(
+			'reporterId', reporters.reporter_id,
+			'userId', reporters.user_id,
+			'createdAt', reporters.created_at,
+			'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name)
+		) AS reporter
+	FROM user_reports 
+	JOIN reporters ON reporters.reporter_id = user_reports.reporter_id
+	LEFT JOIN users ON users.user_id = reporters.user_id
+	WHERE user_reports.reporter_id = ($1)
+	`
+	rows, err := r.querier.Query(ctx, query, reporterID)
+	if err != nil {
+		return reportsByUserResponse{}, err
+	}
+
+	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[reportsByUserResponse])
+	if err != nil {
+		return reportsByUserResponse{}, err
+	}
+
+	key := fmt.Sprintf("user:%s:location", reporterID)
+	result, err := r.redisClient.JSONGet(ctx, key).Result()
+	if err != nil {
+		return reportsByUserResponse{}, err
+	}
+
+	if result != "" {
+		if err := json.Unmarshal([]byte(result), &disaster.Location); err != nil {
+			return reportsByUserResponse{}, err
+		}
+	}
+
+	return disaster, nil
+}
+
+func (r *repository) CreateDisasterReport(
+	ctx context.Context,
+	arg createReportRequest,
+) error {
+	tx, err := r.querier.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+	INSERT INTO reporters (name, user_id)
+	VALUES ($1, $2)
+	ON CONFLICT (user_id) DO UPDATE
+		SET name = EXCLUDED.name
+	RETURNING reporter_id
+	`
+
+	var reporterID string
+
+	row := tx.QueryRow(ctx, query, arg.Name, arg.UserID)
+	if err := row.Scan(&reporterID); err != nil {
+		return err
+	}
+
+	query = `
+        INSERT INTO disaster_reports (
+            status,
+            raw_situation,
+            reporter_id
+        )
+        VALUES ($1, $2, $3)
+        RETURNING disaster_report_id
+    `
+
+	var disasterReportID string
+
+	row = tx.QueryRow(ctx, query, arg.Status, arg.RawSituation, reporterID)
+	if err := row.Scan(&disasterReportID); err != nil {
+		return err
+	}
+
+	query = `
+    INSERT INTO disaster_photos (photo_url, disaster_report_id)
+    VALUES ($1, $2)
+    `
+
+	for _, photoURL := range arg.PhotoURLs {
+		if _, err := tx.Exec(ctx, query, photoURL, disasterReportID); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	argB, err := json.Marshal(arg)
+	if err != nil {
+		return err
+	}
+
+	if err := r.redisClient.Publish(ctx, createReport, argB).Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type saveLocationRequest struct {
