@@ -40,8 +40,9 @@ func (s *Server) ListDisasterReportsByUser(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-type createDisasterReportRequest struct {
-	UserID       string        `json:"userId"`
+type createReportRequest struct {
+	UserID       *string       `json:"userId"`
+	Name         string        `json:"name"`
 	Status       citizenStatus `json:"status"`
 	RawSituation string        `json:"rawSituation"`
 	PhotoURLs    []string      `json:"photoUrls"`
@@ -61,8 +62,15 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 		}
 	}
 
-	disasterReport := createDisasterReportRequest{
-		UserID:       r.FormValue("userId"),
+	var userID *string
+	userIDstr := r.FormValue("userId")
+	if userIDstr != "" {
+		userID = &userIDstr
+	}
+
+	disasterReport := createReportRequest{
+		UserID:       userID,
+		Name:         r.FormValue("name"),
 		Status:       r.FormValue("status"),
 		RawSituation: r.FormValue("rawSituation"),
 		PhotoURLs:    []string{},
