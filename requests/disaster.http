@@ -11,7 +11,8 @@ GET http://{{host}}/api/disaster-reports
 
 # @name Get User's Disaster Reports
 @userId=ea5d6daa-2ba6-454a-88bd-f712cd3d3c8b
-GET http://{{host}}/api/users/{{userId}}/disaster-reports
+@reporterId=49d6af2f-b592-45a7-afee-2f9de0de2491
+GET http://{{host}}/api/users/{{reporterId}}/disaster-reports
 
 ### 
 
