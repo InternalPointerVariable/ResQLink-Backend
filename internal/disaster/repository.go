@@ -15,7 +15,7 @@ import (
 type Repository interface {
 	CreateDisasterReport(ctx context.Context, arg createReportRequest) error
 	ListDisasterReports(ctx context.Context) ([]basicReport, error)
-	ListDisasterReportsByUser(ctx context.Context, userID string) (reportsByUserResponse, error)
+	ListDisasterReportsByReporter(ctx context.Context, reporterID string) (reportsByReporterResponse, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
 }
 
@@ -167,17 +167,17 @@ type userReport struct {
 	PhotoURLs        []string      `json:"photoUrls"`
 }
 
-type reportsByUserResponse struct {
+type reportsByReporterResponse struct {
 	Reports  []userReport `json:"reports"`
 	Reporter reporter     `json:"reporter"`
 	Location *location    `json:"location" db:"-"`
 }
 
 // TODO: Ordering and filtering
-func (r *repository) ListDisasterReportsByUser(
+func (r *repository) ListDisasterReportsByReporter(
 	ctx context.Context,
 	reporterID string,
-) (reportsByUserResponse, error) {
+) (reportsByReporterResponse, error) {
 	query := `
 	WITH photos AS (
 		SELECT 
@@ -229,23 +229,23 @@ func (r *repository) ListDisasterReportsByUser(
 	`
 	rows, err := r.querier.Query(ctx, query, reporterID)
 	if err != nil {
-		return reportsByUserResponse{}, err
+		return reportsByReporterResponse{}, err
 	}
 
-	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[reportsByUserResponse])
+	disaster, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[reportsByReporterResponse])
 	if err != nil {
-		return reportsByUserResponse{}, err
+		return reportsByReporterResponse{}, err
 	}
 
 	key := fmt.Sprintf(locationFmt, reporterID)
 	result, err := r.redisClient.JSONGet(ctx, key).Result()
 	if err != nil {
-		return reportsByUserResponse{}, err
+		return reportsByReporterResponse{}, err
 	}
 
 	if result != "" {
 		if err := json.Unmarshal([]byte(result), &disaster.Location); err != nil {
-			return reportsByUserResponse{}, err
+			return reportsByReporterResponse{}, err
 		}
 	}
 

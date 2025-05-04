@@ -77,12 +77,13 @@ func main() {
 
 	router.Handle("POST /api/sign-up", api.HTTPHandler(app.user.SignUp))
 	router.Handle("POST /api/sign-in", api.HTTPHandler(app.user.SignIn))
+	router.Handle("POST /api/sign-in/anonymous", api.HTTPHandler(app.user.SignInAnonymous))
 	router.Handle("POST /api/sign-out", api.HTTPHandler(app.user.SignOut))
 	router.Handle("GET /api/session", api.HTTPHandler(app.user.GetSession))
 
 	router.Handle(
-		"GET /api/users/{userId}/disaster-reports",
-		api.HTTPHandler(app.disaster.ListDisasterReportsByUser),
+		"GET /api/reporters/{reporterId}/disaster-reports",
+		api.HTTPHandler(app.disaster.ListDisasterReportsByReporter),
 	)
 	router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.ListDisasterReports))
 	router.Handle(

@@ -19,12 +19,12 @@ func NewServer(repository Repository, baseURL string) *Server {
 	}
 }
 
-func (s *Server) ListDisasterReportsByUser(w http.ResponseWriter, r *http.Request) api.Response {
+func (s *Server) ListDisasterReportsByReporter(w http.ResponseWriter, r *http.Request) api.Response {
 	ctx := r.Context()
 
-	userID := r.PathValue("userId")
+	reporterID := r.PathValue("reporterId")
 
-	reports, err := s.repository.ListDisasterReportsByUser(ctx, userID)
+	reports, err := s.repository.ListDisasterReportsByReporter(ctx, reporterID)
 	if err != nil {
 		return api.Response{
 			Error:   fmt.Errorf("get disaster reports by user: %w", err),
