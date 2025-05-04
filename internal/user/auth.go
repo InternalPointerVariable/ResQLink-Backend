@@ -14,9 +14,10 @@ import (
 )
 
 type session struct {
-	SessionID string    `json:"sessionId"`
-	UserID    string    `json:"userId"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	SessionID   string    `json:"sessionId"`
+	UserID      string    `json:"userId"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+	IsAnonymous bool      `json:"isAnonymous"`
 }
 
 func (r *repository) generateSessionToken() (string, error) {
@@ -31,16 +32,21 @@ func (r *repository) generateSessionToken() (string, error) {
 	return token, nil
 }
 
-func (r *repository) createSession(ctx context.Context, token, userID string) (session, error) {
+func (r *repository) createSession(
+	ctx context.Context,
+	token, userID string,
+	isAnon bool,
+) (session, error) {
 	hash := sha256.Sum256([]byte(token))
 	sessionID := hex.EncodeToString(hash[:])
 
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
 	ses := session{
-		SessionID: sessionID,
-		UserID:    userID,
-		ExpiresAt: expiresAt,
+		SessionID:   sessionID,
+		UserID:      userID,
+		ExpiresAt:   expiresAt,
+		IsAnonymous: isAnon,
 	}
 
 	byt, err := json.Marshal(ses)

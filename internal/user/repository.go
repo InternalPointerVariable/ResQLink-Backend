@@ -13,9 +13,10 @@ type Repository interface {
 	Get(ctx context.Context, userID string) (userResponse, error)
 	SignUp(ctx context.Context, arg signUpRequest) error
 	SignIn(ctx context.Context, arg signInRequest) (signInResponse, error)
+	SignInAnonymous(ctx context.Context, anonID string) (signInAnonymousResponse, error)
 
 	generateSessionToken() (string, error)
-	createSession(ctx context.Context, token, userID string) (session, error)
+	createSession(ctx context.Context, token, userID string, isAnon bool) (session, error)
 	validateSessionToken(ctx context.Context, token string) (sessionValidationResponse, error)
 	invalidateSession(ctx context.Context, sessionID, userID string) error
 }
@@ -155,13 +156,40 @@ func (r *repository) SignIn(ctx context.Context, arg signInRequest) (signInRespo
 		return signInResponse{}, err
 	}
 
-	_, err = r.createSession(ctx, token, user.UserID)
+	_, err = r.createSession(ctx, token, user.UserID, false)
 	if err != nil {
 		return signInResponse{}, err
 	}
 
 	return signInResponse{
 		User:  user,
+		Token: token,
+	}, nil
+}
+
+type signInAnonymousRequest struct {
+	AnonymousID string `json:"anonymousId"`
+}
+
+type signInAnonymousResponse struct {
+	Token string `json:"token"`
+}
+
+func (r *repository) SignInAnonymous(
+	ctx context.Context,
+	anonID string,
+) (signInAnonymousResponse, error) {
+	token, err := r.generateSessionToken()
+	if err != nil {
+		return signInAnonymousResponse{}, err
+	}
+
+	_, err = r.createSession(ctx, token, anonID, true)
+	if err != nil {
+		return signInAnonymousResponse{}, err
+	}
+
+	return signInAnonymousResponse{
 		Token: token,
 	}, nil
 }

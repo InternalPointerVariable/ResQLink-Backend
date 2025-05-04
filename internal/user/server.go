@@ -153,6 +153,36 @@ func (s *Server) SignIn(w http.ResponseWriter, r *http.Request) api.Response {
 	}
 }
 
+func (s *Server) SignInAnonymous(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx := r.Context()
+
+	var data signInAnonymousRequest
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("sign in anon: %w", err),
+			Code:    http.StatusBadRequest,
+			Message: "Invalid anonymous sign in request.",
+		}
+	}
+
+	response, err := s.repository.SignInAnonymous(ctx, data.AnonymousID)
+	if err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("sign in anon: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to sign in as anonymous.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusOK,
+		Message: "Successfully signed in as anonymous.",
+		Data:    response,
+	}
+}
+
 type signOutRequest struct {
 	UserID string `json:"userId"`
 	Token  string `json:"token"`
