@@ -77,6 +77,8 @@ type fullReport struct {
 	PhotoURLs      []string `json:"photoUrls"`
 }
 
+const locationFmt = "reporter:%s:location"
+
 func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, error) {
 	query := `
 	SELECT DISTINCT ON (disaster_reports.reporter_id)
@@ -127,7 +129,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	cmds := make(map[string]*redis.JSONCmd)
 
 	for _, report := range reports {
-		key := fmt.Sprintf("user:%s:location", report.Reporter.ReporterID)
+		key := fmt.Sprintf(locationFmt, report.Reporter.ReporterID)
 		cmds[report.Reporter.ReporterID] = pipe.JSONGet(ctx, key)
 	}
 
@@ -235,7 +237,7 @@ func (r *repository) ListDisasterReportsByUser(
 		return reportsByUserResponse{}, err
 	}
 
-	key := fmt.Sprintf("user:%s:location", reporterID)
+	key := fmt.Sprintf(locationFmt, reporterID)
 	result, err := r.redisClient.JSONGet(ctx, key).Result()
 	if err != nil {
 		return reportsByUserResponse{}, err
@@ -320,12 +322,12 @@ func (r *repository) CreateDisasterReport(
 }
 
 type saveLocationRequest struct {
-	Location location `json:"location"`
-	UserID   string   `json:"userId"`
+	Location   location `json:"location"`
+	ReporterID string   `json:"reporterId"`
 }
 
 func (r *repository) SaveLocation(ctx context.Context, arg saveLocationRequest) error {
-	key := fmt.Sprintf("user:%s:location", arg.UserID)
+	key := fmt.Sprintf(locationFmt, arg.ReporterID)
 	if err := r.redisClient.JSONSet(ctx, key, "$", arg.Location).Err(); err != nil {
 		return err
 	}
