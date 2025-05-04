@@ -1,0 +1,21 @@
+@hostname=localhost
+@port=3002
+@host={{hostname}}:{{port}}
+
+###
+
+# @name Sign In Anonymous
+POST http://{{host}}/api/sign-in/anonymous
+Accept: application/json
+Content-Type: application/json
+
+{ "anonymousId": "5542d337-3663-4fa6-ad88-f2f1b4372c34" }
+
+###
+
+# @name Sign Out
+POST http://{{host}}/api/sign-out
+Accept: application/json
+Content-Type: application/json
+
+{ "userId": "5542d337-3663-4fa6-ad88-f2f1b4372c34", "token": "KYOZWQMJ7XWBG7ACHXBLL3JAKKCXPCAR" }
