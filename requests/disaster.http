@@ -21,9 +21,8 @@ WS ws://{{host}}/ws
 ### 
 
 # @name WS Save Location
-@reporterId=49d6af2f-b592-45a7-afee-2f9de0de2491
 WS ws://{{host}}/ws
 
-{ "event": "disaster:save_location", "data": { "location": { "longitude": 30, "latitude": 18, "address": "Local McDonald's" }, "reporterId": "49d6af2f-b592-45a7-afee-2f9de0de2491" } }
+{ "event": "disaster:save_location", "data": { "location": { "longitude": 10, "latitude": 28, "address": "Jollibee" }, "reporterId": "eec383e6-bb2d-42fc-a37c-100088a06fd0" } }
 
 ###
