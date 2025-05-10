@@ -4,6 +4,25 @@
 
 ###
 
+# @name Sign Up
+POST http://{{host}}/api/sign-up
+Accept: application/json
+Content-Type: application/json
+
+{
+    "email": "citizen2@test.com",
+    "password": "password",
+    "firstName": "Citizen",
+    "middleName": "Second",
+    "lastName": "User",
+    "birthDate": "2005-06-18T06:57:38.646Z",
+    "role": "citizen",
+    "statusUpdateFrequency": 30,
+    "isLocationShared": true
+}
+
+###
+
 # @name Sign In Anonymous
 POST http://{{host}}/api/sign-in/anonymous
 Accept: application/json
