@@ -92,7 +92,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 			'id', reporters.reporter_id,
 			'createdAt', reporters.created_at,
 			'name', COALESCE(
-				TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+				TRIM(CONCAT(urep.last_name, ', ', urep.first_name, ' ', urep.middle_name)), 
 				reporters.name
 			)
 		) AS reporter,
@@ -101,7 +101,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 				'id', responders.responder_id,
 				'createdAt', responders.created_at,
 				'name', COALESCE(
-					TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+					TRIM(CONCAT(ures.last_name, ', ', ures.first_name, ' ', ures.middle_name)), 
 					responders.name
 				)
 			)
@@ -110,7 +110,8 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	FROM disaster_reports
 	JOIN reporters ON reporters.reporter_id = disaster_reports.reporter_id
 	LEFT JOIN responders ON responders.responder_id = disaster_reports.responder_id
-	LEFT JOIN users ON users.user_id = reporters.user_id
+	LEFT JOIN users urep ON urep.user_id = reporters.user_id
+	LEFT JOIN users ures ON ures.user_id = responders.user_id
 	ORDER BY 
 		disaster_reports.reporter_id,
 		CASE disaster_reports.status
