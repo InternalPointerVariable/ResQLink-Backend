@@ -71,7 +71,7 @@ func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) ap
 	disasterReport := createReportRequest{
 		UserID:       userID,
 		Name:         r.FormValue("name"),
-		Status:       r.FormValue("status"),
+		Status:       citizenStatus(r.FormValue("status")),
 		RawSituation: r.FormValue("rawSituation"),
 		PhotoURLs:    []string{},
 	}

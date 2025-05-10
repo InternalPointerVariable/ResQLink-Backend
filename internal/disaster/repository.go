@@ -31,7 +31,7 @@ func NewRepository(querier *pgxpool.Pool, redisClient *redis.Client) Repository 
 	}
 }
 
-type citizenStatus = string
+type citizenStatus string
 
 const (
 	safe     citizenStatus = "safe"

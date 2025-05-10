@@ -23,7 +23,7 @@ func NewServer(repository Repository) *Server {
 	}
 }
 
-type role = string
+type role string
 
 const (
 	citizen   role = "citizen"
