@@ -20,6 +20,7 @@ func NewSocketServer(repository Repository) *SocketServer {
 const (
 	createReport = "disaster:create_report" // Used as a PubSub channel
 	saveLocation = "disaster:save_location"
+	setResponder = "disaster:set_responder"
 )
 
 func (s *SocketServer) Handle(ctx context.Context, msg ws.Message) (ws.Message, error) {
@@ -31,6 +32,18 @@ func (s *SocketServer) Handle(ctx context.Context, msg ws.Message) (ws.Message, 
 		}
 
 		if err := s.repository.SaveLocation(ctx, req); err != nil {
+			return ws.Message{}, err
+		}
+
+		return msg.Response(req)
+
+	case setResponder:
+		var req setResponderRequest
+		if err := json.Unmarshal(msg.Data, &req); err != nil {
+			return ws.Message{}, err
+		}
+
+		if err := s.repository.SetResponder(ctx, req); err != nil {
 			return ws.Message{}, err
 		}
 
