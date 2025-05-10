@@ -89,14 +89,20 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 		jsonb_build_object(
 			'reporterId', reporters.reporter_id,
 			'createdAt', reporters.created_at,
-			'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name),
+			'name', COALESCE(
+				TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+				reporters.name
+			),
 			'userId', reporters.user_id
 		) AS reporter,
  		CASE WHEN responders.responder_id IS NOT NULL THEN
 			jsonb_build_object(
 				'responderId', responders.responder_id,
 				'createdAt', responders.created_at,
-				'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name),
+				'name', COALESCE(
+					TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+					responders.name
+				),
 				'userId', responders.user_id
 			)
 		ELSE NULL
@@ -200,7 +206,10 @@ func (r *repository) ListDisasterReportsByReporter(
 					'responder', CASE WHEN responders.responder_id IS NOT NULL THEN
 						jsonb_build_object(
 							'responderId', responders.responder_id,
-							'name', responders.name,
+							'name', COALESCE(
+								TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+								responders.name
+							),
 							'userId', responders.user_id,
 							'createdAt', responders.created_at
 						)
@@ -211,6 +220,7 @@ func (r *repository) ListDisasterReportsByReporter(
 			disaster_reports.reporter_id
 		FROM disaster_reports 
 		LEFT JOIN responders ON responders.responder_id = disaster_reports.responder_id
+		LEFT JOIN users ON users.user_id = responders.user_id
 		LEFT JOIN photos ON photos.disaster_report_id = disaster_reports.disaster_report_id
 		GROUP BY disaster_reports.reporter_id
 	)
@@ -220,7 +230,10 @@ func (r *repository) ListDisasterReportsByReporter(
 			'reporterId', reporters.reporter_id,
 			'userId', reporters.user_id,
 			'createdAt', reporters.created_at,
-			'name', COALESCE(CONCAT(users.last_name, ', ', users.first_name), reporters.name)
+			'name', COALESCE(
+				TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
+				reporters.name
+			)
 		) AS reporter
 	FROM user_reports 
 	JOIN reporters ON reporters.reporter_id = user_reports.reporter_id
