@@ -82,12 +82,12 @@ func main() {
 	router.Handle("GET /api/session", api.HTTPHandler(app.user.GetSession))
 
 	router.Handle(
-		"GET /api/reporters/{reporterId}/disaster-reports",
+		"GET /api/reporters/{reporterId}/reports",
 		api.HTTPHandler(app.disaster.ListDisasterReportsByReporter),
 	)
-	router.Handle("GET /api/disaster-reports", api.HTTPHandler(app.disaster.ListDisasterReports))
+	router.Handle("GET /api/reports", api.HTTPHandler(app.disaster.ListDisasterReports))
 	router.Handle(
-		"POST /api/disaster-reports",
+		"POST /api/reports",
 		api.HTTPHandler(app.disaster.CreateDisasterReport),
 	)
 
