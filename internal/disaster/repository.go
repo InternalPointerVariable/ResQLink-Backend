@@ -40,17 +40,15 @@ const (
 )
 
 type reporter struct {
-	ReporterID string    `json:"reporterId"`
+	ReporterID string    `json:"id"`
 	CreatedAt  time.Time `json:"createdAt"`
 	Name       string    `json:"name"`
-	UserID     *string   `json:"userId"`
 }
 
 type responder struct {
-	ResponderID string    `json:"responderId"`
+	ResponderID string    `json:"id"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Name        string    `json:"name"`
-	UserID      *string   `json:"userId"`
 }
 
 type location struct {
@@ -60,7 +58,7 @@ type location struct {
 }
 
 type basicReport struct {
-	DisasterReportID string        `json:"disasterReportId"`
+	DisasterReportID string        `json:"id"`
 	CreatedAt        time.Time     `json:"createdAt"`
 	UpdatedAt        time.Time     `json:"updatedAt"`
 	Status           citizenStatus `json:"status"`
@@ -87,23 +85,21 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 		disaster_reports.updated_at,
 		disaster_reports.status,
 		jsonb_build_object(
-			'reporterId', reporters.reporter_id,
+			'id', reporters.reporter_id,
 			'createdAt', reporters.created_at,
 			'name', COALESCE(
 				TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
 				reporters.name
-			),
-			'userId', reporters.user_id
+			)
 		) AS reporter,
  		CASE WHEN responders.responder_id IS NOT NULL THEN
 			jsonb_build_object(
-				'responderId', responders.responder_id,
+				'id', responders.responder_id,
 				'createdAt', responders.created_at,
 				'name', COALESCE(
 					TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
 					responders.name
-				),
-				'userId', responders.user_id
+				)
 			)
 		ELSE NULL
 		END AS responder
@@ -163,7 +159,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 }
 
 type userReport struct {
-	DisasterReportID string        `json:"disasterReportId"`
+	DisasterReportID string        `json:"id"`
 	CreatedAt        time.Time     `json:"createdAt"`
 	UpdatedAt        time.Time     `json:"updatedAt"`
 	Status           citizenStatus `json:"status"`
@@ -196,7 +192,7 @@ func (r *repository) ListDisasterReportsByReporter(
 		SELECT 
 			jsonb_agg(
 				jsonb_build_object(
-					'disasterReportId', disaster_reports.disaster_report_id,
+					'id', disaster_reports.disaster_report_id,
 					'createdAt', disaster_reports.created_at,
 					'updatedAt', disaster_reports.updated_at,
 					'status', disaster_reports.status,
@@ -205,12 +201,11 @@ func (r *repository) ListDisasterReportsByReporter(
 					'photoUrls', photos.photo_urls,
 					'responder', CASE WHEN responders.responder_id IS NOT NULL THEN
 						jsonb_build_object(
-							'responderId', responders.responder_id,
+							'id', responders.responder_id,
 							'name', COALESCE(
 								TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 
 								responders.name
 							),
-							'userId', responders.user_id,
 							'createdAt', responders.created_at
 						)
 						ELSE NULL END
@@ -227,8 +222,7 @@ func (r *repository) ListDisasterReportsByReporter(
 	SELECT 
 		user_reports.reports,
 		jsonb_build_object(
-			'reporterId', reporters.reporter_id,
-			'userId', reporters.user_id,
+			'id', reporters.reporter_id,
 			'createdAt', reporters.created_at,
 			'name', COALESCE(
 				TRIM(CONCAT(users.last_name, ', ', users.first_name, ' ', users.middle_name)), 

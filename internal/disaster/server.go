@@ -41,7 +41,7 @@ func (s *Server) ListDisasterReportsByReporter(w http.ResponseWriter, r *http.Re
 }
 
 type createReportRequest struct {
-	UserID       *string       `json:"userId"`
+	UserID       *string       `json:"id"`
 	Name         string        `json:"name"`
 	Status       citizenStatus `json:"status"`
 	RawSituation string        `json:"rawSituation"`

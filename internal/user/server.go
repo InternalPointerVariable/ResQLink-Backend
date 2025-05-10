@@ -79,7 +79,7 @@ func (s *Server) SignUp(w http.ResponseWriter, r *http.Request) api.Response {
 }
 
 type BasicInfo struct {
-	UserID     string  `json:"userId"`
+	UserID     string  `json:"id"`
 	FirstName  string  `json:"firstName"`
 	MiddleName *string `json:"middleName"`
 	LastName   string  `json:"lastName"`
@@ -184,7 +184,7 @@ func (s *Server) SignInAnonymous(w http.ResponseWriter, r *http.Request) api.Res
 }
 
 type signOutRequest struct {
-	UserID string `json:"userId"`
+	UserID string `json:"id"`
 	Token  string `json:"token"`
 }
 

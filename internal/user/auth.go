@@ -14,7 +14,7 @@ import (
 )
 
 type session struct {
-	SessionID   string    `json:"sessionId"`
+	SessionID   string    `json:"id"`
 	UserID      string    `json:"userId"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 	IsAnonymous bool      `json:"isAnonymous"`
