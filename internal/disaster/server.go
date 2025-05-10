@@ -1,6 +1,7 @@
 package disaster
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -19,7 +20,10 @@ func NewServer(repository Repository, baseURL string) *Server {
 	}
 }
 
-func (s *Server) ListDisasterReportsByReporter(w http.ResponseWriter, r *http.Request) api.Response {
+func (s *Server) ListDisasterReportsByReporter(
+	w http.ResponseWriter,
+	r *http.Request,
+) api.Response {
 	ctx := r.Context()
 
 	reporterID := r.PathValue("reporterId")
@@ -125,5 +129,42 @@ func (s *Server) ListDisasterReports(w http.ResponseWriter, r *http.Request) api
 		Code:    http.StatusOK,
 		Message: "Successfully fetched disaster reports.",
 		Data:    reports,
+	}
+}
+
+func (s *Server) SetResponder(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx := r.Context()
+
+	var data setResponderRequest
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("set responder: %w", err),
+			Code:    http.StatusBadRequest,
+			Message: "Invalid set responder request.",
+		}
+	}
+
+	reporterID := r.PathValue("reporterId")
+	if data.ReporterID != reporterID {
+		return api.Response{
+			Error:   fmt.Errorf("set responder: reporter ID mismatch"),
+			Code:    http.StatusBadRequest,
+			Message: "Reporter ID in path and body doesn't match.",
+		}
+	}
+
+	if err := s.repository.SetResponder(ctx, data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("set responder: %w", err),
+			Code:    http.StatusBadRequest,
+			Message: "Failed to set responder.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusOK,
+		Message: "Successfully set responder.",
 	}
 }

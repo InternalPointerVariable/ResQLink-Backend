@@ -85,6 +85,10 @@ func main() {
 		"GET /api/reporters/{reporterId}/reports",
 		api.HTTPHandler(app.disaster.ListDisasterReportsByReporter),
 	)
+	router.Handle(
+		"PATCH /api/reporters/{reporterId}/reports",
+		api.HTTPHandler(app.disaster.SetResponder),
+	)
 	router.Handle("GET /api/reports", api.HTTPHandler(app.disaster.ListDisasterReports))
 	router.Handle(
 		"POST /api/reports",

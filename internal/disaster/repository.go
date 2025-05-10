@@ -15,8 +15,12 @@ import (
 type Repository interface {
 	CreateDisasterReport(ctx context.Context, arg createReportRequest) error
 	ListDisasterReports(ctx context.Context) ([]basicReport, error)
-	ListDisasterReportsByReporter(ctx context.Context, reporterID string) (reportsByReporterResponse, error)
+	ListDisasterReportsByReporter(
+		ctx context.Context,
+		reporterID string,
+	) (reportsByReporterResponse, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
+	SetResponder(ctx context.Context, arg setResponderRequest) error
 }
 
 type repository struct {
@@ -64,7 +68,7 @@ type basicReport struct {
 	Status           citizenStatus `json:"status"`
 	Reporter         reporter      `json:"reporter"`
 	Responder        *responder    `json:"responder"`
-	Location         location      `json:"location"         db:"-"`
+	Location         location      `json:"location"  db:"-"`
 }
 
 type fullReport struct {
@@ -336,6 +340,57 @@ type saveLocationRequest struct {
 func (r *repository) SaveLocation(ctx context.Context, arg saveLocationRequest) error {
 	key := fmt.Sprintf(locationFmt, arg.ReporterID)
 	if err := r.redisClient.JSONSet(ctx, key, "$", arg.Location).Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type initResponder struct {
+	Name   string  `json:"name"`
+	UserID *string `json:"userId"`
+}
+
+type setResponderRequest struct {
+	ReporterID string        `json:"reporterId"`
+	Responder  initResponder `json:"responder"`
+}
+
+func (r *repository) SetResponder(
+	ctx context.Context,
+	arg setResponderRequest,
+) error {
+	tx, err := r.querier.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+	INSERT INTO responders (name, user_id) 
+	VALUES ($1, $2)
+	ON CONFLICT (user_id) DO UPDATE
+		SET name = EXCLUDED.name
+	RETURNING responder_id
+	`
+
+	var responderID string
+
+	row := tx.QueryRow(ctx, query, arg.Responder.Name, arg.Responder.UserID)
+	if err := row.Scan(&responderID); err != nil {
+		return err
+	}
+
+	query = `
+	UPDATE disaster_reports SET responder_id = ($1) 
+	WHERE reporter_id = ($2) AND responder_id IS NULL
+	`
+
+	if _, err := tx.Exec(ctx, query, responderID, arg.ReporterID); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 
