@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/cors"
 )
 
 type app struct {
@@ -105,9 +106,14 @@ func main() {
 		panic("PORT not found.")
 	}
 
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PATCH", "OPTIONS"},
+	})
+
 	server := http.Server{
 		Addr:    host + ":" + port,
-		Handler: router, // TODO: Wrap authenticated routes with `AuthMiddleware`
+		Handler: c.Handler(router), // TODO: Wrap authenticated routes with `AuthMiddleware`
 	}
 
 	slog.Info(fmt.Sprintf("Starting server on port: %s", port))
@@ -117,4 +123,8 @@ func main() {
 
 func health(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Hello, World!")
+}
+
+func EnableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
