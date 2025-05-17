@@ -68,7 +68,7 @@ type basicReport struct {
 	Status           citizenStatus `json:"status"`
 	Reporter         reporter      `json:"reporter"`
 	Responder        *responder    `json:"responder"`
-	Location         location      `json:"location"  db:"-"`
+	Location         *location      `json:"location"  db:"-"`
 }
 
 type fullReport struct {
