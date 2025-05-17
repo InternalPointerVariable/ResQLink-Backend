@@ -1,6 +1,8 @@
 package disaster
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +13,14 @@ import (
 	"strings"
 	"time"
 )
+
+func randomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
 
 var errInvalidFileType = errors.New("invalid file type")
 
@@ -35,8 +45,20 @@ func uploadPhoto(fileHeader *multipart.FileHeader, baseURL string) (string, erro
 		return "", err
 	}
 
+	// TODO: Extension should depend on what the file type is, but this works for now.
 	ext := "jpg"
-	fileName := fmt.Sprintf("disaster_report_%s.%s", time.Now().Format("20060102150405"), ext)
+	suffix, err := randomHex(3)
+	if err != nil {
+		return "", fmt.Errorf("upload photo: failed to generate random suffix: %w", err)
+	}
+	now := time.Now()
+	fileName := fmt.Sprintf(
+		"report_%s_%09d_%s.%s",
+		now.Format("20060102-150405"),
+		now.Nanosecond(),
+		suffix, // Add random suffix just to make sure the file name is unique
+		ext,
+	)
 
 	uploadDir := "_temp/photos"
 	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
