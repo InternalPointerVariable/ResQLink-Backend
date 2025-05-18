@@ -56,8 +56,8 @@ type responder struct {
 }
 
 type location struct {
-	Longitude int     `json:"longitude"`
-	Latitude  int     `json:"latitude"`
+	Longitude float32 `json:"longitude"`
+	Latitude  float32 `json:"latitude"`
 	Address   *string `json:"address"`
 }
 
@@ -68,7 +68,7 @@ type basicReport struct {
 	Status           citizenStatus `json:"status"`
 	Reporter         reporter      `json:"reporter"`
 	Responder        *responder    `json:"responder"`
-	Location         *location      `json:"location"  db:"-"`
+	Location         *location     `json:"location"  db:"-"`
 }
 
 type fullReport struct {
