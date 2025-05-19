@@ -155,7 +155,8 @@ func (s *Server) SetResponder(w http.ResponseWriter, r *http.Request) api.Respon
 		}
 	}
 
-	if err := s.repository.SetResponder(ctx, data); err != nil {
+	resp, err := s.repository.SetResponder(ctx, data)
+	if err != nil {
 		return api.Response{
 			Error:   fmt.Errorf("set responder: %w", err),
 			Code:    http.StatusBadRequest,
@@ -165,6 +166,7 @@ func (s *Server) SetResponder(w http.ResponseWriter, r *http.Request) api.Respon
 
 	return api.Response{
 		Code:    http.StatusOK,
+		Data:    resp,
 		Message: "Successfully set responder.",
 	}
 }

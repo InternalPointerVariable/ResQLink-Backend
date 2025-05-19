@@ -20,7 +20,7 @@ type Repository interface {
 		reporterID string,
 	) (reportsByReporterResponse, error)
 	SaveLocation(ctx context.Context, arg saveLocationRequest) error
-	SetResponder(ctx context.Context, arg setResponderRequest) error
+	SetResponder(ctx context.Context, arg setResponderRequest) (setResponderResponse, error)
 }
 
 type repository struct {
@@ -114,6 +114,7 @@ func (r *repository) ListDisasterReports(ctx context.Context) ([]basicReport, er
 	LEFT JOIN users ures ON ures.user_id = responders.user_id
 	ORDER BY 
 		disaster_reports.reporter_id,
+		disaster_reports.responder_id NULLS FIRST,
 		CASE disaster_reports.status
 			WHEN 'in_danger' THEN 1
 			WHEN 'at_risk' THEN 2
@@ -357,13 +358,18 @@ type setResponderRequest struct {
 	Responder  initResponder `json:"responder"`
 }
 
+type setResponderResponse struct {
+	ReporterID string    `json:"reporterId"`
+	Responder  responder `json:"responder"`
+}
+
 func (r *repository) SetResponder(
 	ctx context.Context,
 	arg setResponderRequest,
-) error {
+) (setResponderResponse, error) {
 	tx, err := r.querier.Begin(ctx)
 	if err != nil {
-		return err
+		return setResponderResponse{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -372,14 +378,14 @@ func (r *repository) SetResponder(
 	VALUES ($1, $2)
 	ON CONFLICT (user_id) DO UPDATE
 		SET name = EXCLUDED.name
-	RETURNING responder_id
+	RETURNING responder_id, created_at, name
 	`
 
-	var responderID string
+	var resp responder
 
 	row := tx.QueryRow(ctx, query, arg.Responder.Name, arg.Responder.UserID)
-	if err := row.Scan(&responderID); err != nil {
-		return err
+	if err := row.Scan(&resp.ResponderID, &resp.CreatedAt, &resp.Name); err != nil {
+		return setResponderResponse{}, err
 	}
 
 	query = `
@@ -387,13 +393,18 @@ func (r *repository) SetResponder(
 	WHERE reporter_id = ($2) AND responder_id IS NULL
 	`
 
-	if _, err := tx.Exec(ctx, query, responderID, arg.ReporterID); err != nil {
-		return err
+	if _, err := tx.Exec(ctx, query, resp.ResponderID, arg.ReporterID); err != nil {
+		return setResponderResponse{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return err
+		return setResponderResponse{}, err
 	}
 
-	return nil
+	res := setResponderResponse{
+		ReporterID: arg.ReporterID,
+		Responder:  resp,
+	}
+
+	return res, err
 }

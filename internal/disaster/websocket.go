@@ -43,11 +43,12 @@ func (s *SocketServer) Handle(ctx context.Context, msg ws.Message) (ws.Message, 
 			return ws.Message{}, err
 		}
 
-		if err := s.repository.SetResponder(ctx, req); err != nil {
+		resp, err := s.repository.SetResponder(ctx, req)
+		if err != nil {
 			return ws.Message{}, err
 		}
 
-		return msg.Response(req)
+		return msg.Response(resp)
 	}
 
 	return ws.Message{}, nil
