@@ -45,11 +45,41 @@ func (s *Server) ListDisasterReportsByReporter(
 }
 
 type createReportRequest struct {
-	UserID       *string       `json:"id"`
+	UserID       *string       `json:"userId"`
 	Name         string        `json:"name"`
 	Status       citizenStatus `json:"status"`
 	RawSituation string        `json:"rawSituation"`
 	PhotoURLs    []string      `json:"photoUrls"`
+}
+
+// NOTE: This is a version of `CreateDisasterReport` that uses `application/json`
+// And it does not support image uploads
+func (s *Server) CreateDisasterReportJson(w http.ResponseWriter, r *http.Request) api.Response {
+	ctx := r.Context()
+
+	var data createReportRequest
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("create disaster report: %w", err),
+			Code:    http.StatusBadRequest,
+			Message: "Failed to create disaster report.",
+		}
+	}
+
+	if err := s.repository.CreateDisasterReport(ctx, data); err != nil {
+		return api.Response{
+			Error:   fmt.Errorf("create disaster report: %w", err),
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to create disaster report.",
+		}
+	}
+
+	return api.Response{
+		Code:    http.StatusCreated,
+		Message: "Successfully created disaster report.",
+	}
 }
 
 func (s *Server) CreateDisasterReport(w http.ResponseWriter, r *http.Request) api.Response {

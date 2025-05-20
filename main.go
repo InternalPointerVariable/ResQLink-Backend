@@ -93,7 +93,7 @@ func main() {
 	router.Handle("GET /api/reports", api.HTTPHandler(app.disaster.ListDisasterReports))
 	router.Handle(
 		"POST /api/reports",
-		api.HTTPHandler(app.disaster.CreateDisasterReport),
+		api.HTTPHandler(app.disaster.CreateDisasterReportJson),
 	)
 
 	host, ok := os.LookupEnv("HOST")
