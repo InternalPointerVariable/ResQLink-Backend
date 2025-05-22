@@ -1,0 +1,40 @@
+@hostname=localhost
+@port=3002
+@host={{hostname}}:{{port}}
+
+###
+
+# @name Sign Up
+POST http://{{host}}/api/sign-up
+Accept: application/json
+Content-Type: application/json
+
+{
+    "email": "citizen2@test.com",
+    "password": "password",
+    "firstName": "Citizen",
+    "middleName": "Second",
+    "lastName": "User",
+    "birthDate": "2005-06-18T06:57:38.646Z",
+    "role": "citizen",
+    "statusUpdateFrequency": 30,
+    "isLocationShared": true
+}
+
+###
+
+# @name Sign In Anonymous
+POST http://{{host}}/api/sign-in/anonymous
+Accept: application/json
+Content-Type: application/json
+
+{ "anonymousId": "5542d337-3663-4fa6-ad88-f2f1b4372c34" }
+
+###
+
+# @name Sign Out
+POST http://{{host}}/api/sign-out
+Accept: application/json
+Content-Type: application/json
+
+{ "userId": "5542d337-3663-4fa6-ad88-f2f1b4372c34", "token": "KYOZWQMJ7XWBG7ACHXBLL3JAKKCXPCAR" }

@@ -1,0 +1,33 @@
+@hostname=localhost
+@port=3002
+@host={{hostname}}:{{port}}
+
+### 
+
+# @name Get Disaster Reports
+GET http://{{host}}/api/disaster-reports
+
+###
+
+# @name Get User's Disaster Reports
+@reporterId=49d6af2f-b592-45a7-afee-2f9de0de2491
+GET http://{{host}}/api/reporters/{{reporterId}}/disaster-reports
+
+### 
+
+# @name WebSocket (WS)
+WS ws://{{host}}/ws
+
+### 
+
+# @name WS Save Location
+WS ws://{{host}}/ws
+
+{ "event": "disaster:save_location", "data": { "location": { "longitude": 10, "latitude": 28, "address": "Jollibee" }, "reporterId": "eec383e6-bb2d-42fc-a37c-100088a06fd0" } }
+
+###
+
+# @name WS Set Responder
+WS ws://{{host}}/ws
+
+{ "event": "disaster:set_responder", "data": { "reporterId": "eec383e6-bb2d-42fc-a37c-100088a06fd0", "responder": { "name": "User, Responder", "userId": "d7d5387f-759c-4830-8a35-72d8163413dd" } } }
